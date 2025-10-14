@@ -1,0 +1,30 @@
+---
+alwaysApply: true
+description: High-level overview of TRM ARC-AGI-2 reproduction workflow and invariants
+---
+
+## TRM ARC-AGI-2 Reproduction — Overview
+
+- **Goal**: Paper-faithful reproduction of Tiny Recursive Models (TRM) on **ARC-AGI-2**, then publish the final checkpoint as a **Kaggle Dataset**.
+- **Source of truth**: Follow the upstream TRM repository (no code modifications).
+- **Critical invariants**:
+  - **TARGET_DATASET must be `arc2`** at all times.
+  - **No source edits** to TRM. Do not change hyperparameters beyond those explicitly documented for ARC-AGI-2 in upstream examples.
+  - **Do not mix** ARC-AGI-1 and ARC-AGI-2 inputs.
+  - If publishing, `~/.kaggle/kaggle.json` must exist with `chmod 600`.
+
+### Primary References (in this repo)
+- Runbook and infra notes: [run.sh](mdc:run.sh), [infra.md](mdc:infra.md), [REQUIREMENTS.MD](mdc:REQUIREMENTS.MD)
+- ARC/inputs staging: `kaggle/combined/arc-agi/` (training2, evaluation2, concept)
+- Helper: [aggregate_arc_inputs.py](mdc:aggregate_arc_inputs.py)
+
+### High-Level Workflow
+1. System sanity and directories
+2. Clone upstream TRM (record commit)
+3. Python 3.10 environment; install PyTorch and TRM requirements
+4. Build ARC-AGI-2 dataset via TRM’s builder into `data/arc2concept-aug-1000/`
+5. Train TRM using upstream ARC-AGI-2 flags (single or multi-GPU)
+6. Verify artifacts; record provenance and summary
+7. Optionally publish final checkpoint to Kaggle as a Dataset
+
+Always prefer absolute paths in scripts and commands, and avoid modifying upstream TRM code or flags beyond the documented ARC-AGI-2 configuration.

@@ -1,0 +1,64 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: trm-train-arc2-8gpu
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      nodeName: gd90782
+      nodeSelector:
+        gpu.nvidia.com/model: H200
+      containers:
+        - name: trainer
+          image: nvidia/cuda:12.1.0-devel-ubuntu22.04
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: WANDB_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wandb-api-key
+                  key: token
+            - name: WANDB_MODE
+              value: online
+            - name: WANDB_PROJECT
+            - name: DISABLE_COMPILE
+              value: "1"
+              value: trm-arc2
+            - name: CUDA_HOME
+              value: /usr/local/cuda
+          command: ["bash","-lc"]
+          args:
+            - |
+              . /script/common.sh
+              cd /workspace/TinyRecursiveModels
+              run_name="trm_arc2_8gpu_variant"
+              torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+                arch=trm \
+                data_paths="[data/arc2concept-aug-1000]" \
+                arch.L_layers=2 \
+                arch.H_cycles=3 arch.L_cycles=4 \
+                +run_name=${run_name} ema=True
+          volumeMounts:
+            - name: trm-workspace
+              mountPath: /workspace
+            - name: script
+              mountPath: /script
+          resources:
+            limits:
+              nvidia.com/gpu: 8
+              cpu: "16"
+              memory: 96Gi
+            requests:
+              nvidia.com/gpu: 8
+              cpu: "8"
+              memory: 48Gi
+      volumes:
+        - name: trm-workspace
+          persistentVolumeClaim:
+            claimName: trm-workspace-rwx
+        - name: script
+          configMap:
+            name: trm-train-common
+            defaultMode: 0755

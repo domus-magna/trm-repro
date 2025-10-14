@@ -1,0 +1,50 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sanitize-solutions
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: sanitizer
+          image: python:3.10-slim
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -euo pipefail
+              cd /workspace/TinyRecursiveModels
+
+              echo "=== Running sanitizer ==="
+              python /script/sanitize.py
+
+              echo ""
+              echo "=== Copying sanitized file to expected locations ==="
+              cp -v kaggle/combined/arc-agi_evaluation2-solutions.sanitized.json \
+                    kaggle/combined/arc-agi_evaluation2-solutions.json
+              cp -v kaggle/combined/arc-agi_evaluation2-solutions.sanitized.json \
+                    kaggle/combined/arc-agi_evaluation2_solutions.json
+
+              echo ""
+              echo "=== Verification ==="
+              ls -lh kaggle/combined/*evaluation2*solutions*.json
+
+              echo ""
+              echo "=== Audit Log ==="
+              cat kaggle/combined/arc-agi_evaluation2-solutions.sanitized.audit.txt
+
+              echo ""
+              echo "✓ Solutions sanitized successfully"
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+            - name: script
+              mountPath: /script
+      volumes:
+        - name: workspace
+          persistentVolumeClaim:
+            claimName: trm-workspace-pvc
+        - name: script
+          configMap:
+            name: sanitize-script
