@@ -1,0 +1,40 @@
+# Cursor Rules for TRM ARC-AGI-2 Reproduction
+
+## Project Context
+This project is for reproducing Tiny Recursive Models (TRM) training on ARC-AGI-2 and publishing the final checkpoint as a Kaggle Dataset.
+
+## Key Instructions
+- **TARGET_DATASET must be `arc2`** at all times
+- **No source edits** to TRM - follow upstream exactly
+- **Do not mix** ARC-AGI-1 and ARC-AGI-2 inputs
+- **Use Beads for issue tracking**: Run `bd quickstart` to understand the workflow
+- **Paper-faithful reproduction** - stick to documented hyperparameters only
+
+## Workflow
+1. Set up environment (Python 3.10, PyTorch, TRM dependencies)
+2. Clone TRM repository (no modifications)
+3. Build ARC-AGI-2 dataset using TRM's builder
+4. Train TRM with exact upstream flags
+5. Verify artifacts and provenance
+6. Publish checkpoint to Kaggle Dataset (optional)
+
+## Agent Instructions
+We track work in Beads instead of Markdown. Use `bd` commands for:
+- Creating issues: `bd create "Task description"`
+- Viewing ready work: `bd ready`
+- Updating status: `bd update <id> --status in_progress`
+- Closing completed work: `bd close <id> --reason "Done"`
+
+## File Structure
+- `AGENTS.MD` - Complete workflow documentation
+- `CLAUDE.MD` - Quick reference for Claude
+- `.beads/` - Issue tracking database and JSONL export
+- `kaggle/combined/arc-agi/` - ARC-AGI-2 input data
+- `infra.md` - Infrastructure documentation
+- `REQUIREMENTS.MD` - Requirements and setup guide
+
+## Code Style
+- Use absolute paths in scripts where possible
+- Follow existing patterns in the repository
+- No modifications to upstream TRM code
+- Python 3.10 strictly required

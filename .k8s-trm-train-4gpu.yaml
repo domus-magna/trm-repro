@@ -7,9 +7,8 @@ spec:
   template:
     spec:
       restartPolicy: Never
-      nodeName: gd956ec
       nodeSelector:
-        gpu.nvidia.com/model: H200
+        kubernetes.io/hostname: gd956ec
       containers:
         - name: trainer
           image: nvidia/cuda:12.1.0-devel-ubuntu22.04
@@ -31,13 +30,29 @@ spec:
             - |
               source /script/common.sh
               cd /workspace/TinyRecursiveModels
-              run_name="trm_arc2_paper_repro"
-              torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py                 arch=trm                 data_paths="[data/arc2concept-aug-1000]"                 arch.L_layers=2                 arch.H_cycles=3 arch.L_cycles=4                 +run_name= ema=True
+              run_name="trm_arc2_4gpu_e10k_i100"
+              export PYTHONPATH="/workspace/pyshim:${PYTHONPATH:-}"
+              python3 -m trm_eval_patch
+              torchrun --nproc-per-node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+                arch=trm \
+                data_paths="[data/arc2concept-aug-1000]" \
+                arch.L_layers=2 \
+                arch.H_cycles=3 arch.L_cycles=4 \
+                +run_name="${run_name}" ema=True \
+                epochs=10000 eval_interval=100
           volumeMounts:
             - name: trm-workspace
               mountPath: /workspace
             - name: script
-              mountPath: /script
+              mountPath: /script/common.sh
+              subPath: common.sh
+            - name: trm-eval-overlay
+              mountPath: /workspace/TinyRecursiveModels/evaluators/arc.py
+              subPath: arc.py
+            - name: trm-pretrain-eval-patch
+              mountPath: /workspace/pyshim
+            - name: dshm
+              mountPath: /dev/shm
           resources:
             limits:
               nvidia.com/gpu: 4
@@ -52,6 +67,15 @@ spec:
           persistentVolumeClaim:
             claimName: trm-workspace-rwx
         - name: script
-          hostPath:
-            path: /Users/alexanderhuth/trm-repro/.k8s-trm-common.sh
-            type: File
+          configMap:
+            name: trm-common-script
+        - name: trm-eval-overlay
+          configMap:
+            name: trm-eval-overlay
+        - name: trm-pretrain-eval-patch
+          configMap:
+            name: trm-pretrain-eval-patch
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 8Gi

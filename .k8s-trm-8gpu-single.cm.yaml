@@ -13,7 +13,7 @@ spec:
           value: "true"
           effect: PreferNoSchedule
       nodeSelector:
-        gpu.nvidia.com/model: H200
+        kubernetes.io/hostname: gd90782
       containers:
         - name: trainer
           image: nvidia/cuda:12.1.0-devel-ubuntu22.04
@@ -40,19 +40,27 @@ spec:
               . /script/common.sh
               cd /workspace/TinyRecursiveModels
               run_name="trm_arc2_8gpu_variant"
+              export PYTHONPATH="/workspace/pyshim:${PYTHONPATH:-}"
+              python3 -m trm_eval_patch
               torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
                 arch=trm \
                 data_paths="[data/arc2concept-aug-1000]" \
-                data_paths_test="[data/arc2concept-aug-1000]" \
                 arch.L_layers=2 \
                 arch.H_cycles=3 arch.L_cycles=4 \
                 +run_name=${run_name} ema=True \
-                epochs=10000 eval_interval=50
+                checkpoint_every_eval=True \
+                epochs=10000 eval_interval=1
           volumeMounts:
             - name: trm-workspace
               mountPath: /workspace
             - name: script
-              mountPath: /script
+              mountPath: /script/common.sh
+              subPath: common.sh
+            - name: trm-eval-overlay
+              mountPath: /workspace/TinyRecursiveModels/evaluators/arc.py
+              subPath: arc.py
+            - name: trm-pretrain-eval-patch
+              mountPath: /workspace/pyshim
             - name: dshm
               mountPath: /dev/shm
           resources:
@@ -70,8 +78,13 @@ spec:
             claimName: trm-workspace-rwx
         - name: script
           configMap:
-            name: trm-train-common
-            defaultMode: 0755
+            name: trm-common-script
+        - name: trm-eval-overlay
+          configMap:
+            name: trm-eval-overlay
+        - name: trm-pretrain-eval-patch
+          configMap:
+            name: trm-pretrain-eval-patch
         - name: dshm
           emptyDir:
             medium: Memory

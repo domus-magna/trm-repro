@@ -2,8 +2,10 @@
 # TRM (Tiny Recursive Models) — Paper-Faithful Reproduction on ARC-AGI-2 → Publish Weights to Kaggle
 # Single-agent playbook. One agent performs the entire workflow end-to-end.
 
-> Scope: Reproduce upstream TRM training **as written** on **ARC-AGI-2** and publish the final checkpoint as a **Kaggle Dataset** for use in a Kaggle Notebook.  
+> Scope: Reproduce upstream TRM training **as written** on **ARC-AGI-2** and publish the final checkpoint as a **Kaggle Dataset** for use in a Kaggle Notebook.
 > No source edits. No hyperparameter changes. Do **not** mix ARC-AGI-1 with ARC-AGI-2.
+
+We track work in Beads instead of Markdown. Run `bd quickstart` to see how.
 
 ---
 
