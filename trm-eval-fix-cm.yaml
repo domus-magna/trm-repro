@@ -1,0 +1,98 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trm-eval-fix
+data:
+  trm_eval_patch.py: |
+    # Apply evaluator fix after torch and TRM modules are available
+    import sys, os, copy, inspect
+
+    PATCH_APPLIED = False
+
+    def apply_trm_eval_patch():
+        """Apply the evaluator patch for safe distributed gathering"""
+        global PATCH_APPLIED
+
+        # Prevent multiple applications
+        if PATCH_APPLIED:
+            return True
+
+        try:
+            # Ensure TRM package is importable
+            trm_root = "/workspace/TinyRecursiveModels"
+            if trm_root not in sys.path:
+                sys.path.insert(0, trm_root)
+
+            # Try to import required modules - if any fail, return False to retry later
+            try:
+                import torch
+                import importlib
+                arc_mod = importlib.import_module("evaluators.arc")
+            except (ImportError, ModuleNotFoundError) as e:
+                # Modules not available yet, will retry later
+                return False
+
+            # Find the evaluator class that implements result()
+            target_cls = None
+            for name in dir(arc_mod):
+                obj = getattr(arc_mod, name, None)
+                if inspect.isclass(obj) and hasattr(obj, "result"):
+                    target_cls = obj
+                    break
+
+            if target_cls is None:
+                print("[trm-eval-fix] no evaluator class with result() found", file=sys.stderr)
+                return False
+
+            _orig_result = target_cls.result
+
+            def _to_cpu_plain(obj):
+                if obj is None or isinstance(obj, (str, int, float, bool)):
+                    return obj
+                if isinstance(obj, torch.Tensor):
+                    return obj.detach().clone().cpu()
+                if isinstance(obj, dict):
+                    return {k: _to_cpu_plain(v) for k,v in obj.items()}
+                if isinstance(obj, (list, tuple)):
+                    T = type(obj)
+                    return T(_to_cpu_plain(x) for x in obj)
+                return copy.deepcopy(obj)
+
+            def _patched_result(self, save_path, rank, world_size, group=None):
+                # Make safe, plain copies just for the gather step
+                local_hmap_cpu  = _to_cpu_plain(getattr(self, "_local_hmap", {}))
+                local_preds_cpu = _to_cpu_plain(getattr(self, "_local_preds", {}))
+                # Swap, call, restore
+                _h, _p = getattr(self, "_local_hmap", None), getattr(self, "_local_preds", None)
+                try:
+                    self._local_hmap, self._local_preds = local_hmap_cpu, local_preds_cpu
+                    return _orig_result(self, save_path, rank, world_size, group)
+                finally:
+                    self._local_hmap, self._local_preds = _h, _p
+
+            target_cls.result = _patched_result
+            PATCH_APPLIED = True
+            print(f"[trm-eval-fix] patched {target_cls.__name__}.result for safe gather_object()", file=sys.stderr)
+            return True
+
+        except Exception as e:
+            print(f"[trm-eval-fix] unexpected patch application error: {e}", file=sys.stderr)
+            return False
+
+    def ensure_patch_applied():
+        """Ensure patch is applied, retrying if necessary"""
+        max_retries = 5
+        for attempt in range(max_retries):
+            if apply_trm_eval_patch():
+                return True
+            elif attempt < max_retries - 1:
+                print(f"[trm-eval-fix] patch attempt {attempt + 1} failed, retrying...", file=sys.stderr)
+                import time
+                time.sleep(1)
+            else:
+                print("[trm-eval-fix] failed to apply patch after all retries", file=sys.stderr)
+                return False
+        return False
+
+    # Export the function for use in training scripts
+    __all__ = ['apply_trm_eval_patch', 'ensure_patch_applied']

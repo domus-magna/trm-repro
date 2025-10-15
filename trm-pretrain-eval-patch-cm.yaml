@@ -1,0 +1,140 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trm-pretrain-eval-patch
+data:
+  __init__.py: |
+    # pyshim package marker
+  sitecustomize.py: |
+    import importlib
+
+    if importlib.util.find_spec("torch") is None:
+        print("[SITE] torch not installed yet; skipping inference patch", flush=True)
+    else:
+        import torch
+        if hasattr(torch, "inference_mode") and hasattr(torch, "no_grad"):
+            torch.inference_mode = torch.no_grad
+            print("[SITE] torch.inference_mode patched to no_grad", flush=True)
+        else:
+            print("[SITE] torch missing inference_mode/no_grad", flush=True)
+  trm_eval_patch.py: |
+    import os
+    import importlib
+    from typing import Optional, Any, Sequence
+
+    import torch
+    import torch.distributed as dist
+
+
+    def _patch_pretrain_evaluate():
+        pretrain = importlib.import_module("pretrain")
+        orig_evaluate = pretrain.evaluate
+
+        def patched_evaluate(
+            config,
+            train_state,
+            eval_loader: torch.utils.data.DataLoader,
+            eval_metadata,
+            evaluators: Sequence[Any],
+            rank: int,
+            world_size: int,
+            cpu_group: Optional[dist.ProcessGroup],
+        ):
+            # Run original evaluate under inference mode
+            with torch.inference_mode():
+                return_keys = set(config.eval_save_outputs)
+                for evaluator in evaluators:
+                    evaluator.begin_eval()
+                    return_keys.update(evaluator.required_outputs)
+
+                set_ids = {k: idx for idx, k in enumerate(eval_metadata.sets)}
+                metric_keys = []
+                metric_values = None
+
+                for set_name, batch, _ in eval_loader:
+                    batch = {k: v.cuda() for k, v in batch.items()}
+                    carry = train_state.model.initial_carry(batch)
+                    while True:
+                        carry, _, metrics, preds, all_finish = train_state.model(
+                            carry=carry, batch=batch, return_keys=return_keys
+                        )
+                        if all_finish:
+                            break
+
+                    for evaluator in evaluators:
+                        evaluator.update_batch(batch, preds)
+
+                    del carry, preds
+
+                    set_id = set_ids[set_name]
+                    if metric_values is None:
+                        metric_keys = list(sorted(metrics.keys()))
+                        metric_values = torch.zeros(
+                            (len(set_ids), len(metrics.values())), dtype=torch.float32, device="cuda"
+                        )
+                    metric_values[set_id] += torch.stack([metrics[k] for k in metric_keys])
+                    del metrics
+
+            # Combine metrics outside the inference context
+            reduced_metrics = None
+            if metric_values is not None:
+                if world_size > 1:
+                    dist.reduce(metric_values, dst=0)
+                if rank == 0:
+                    reduced = metric_values.cpu().numpy()
+                    reduced_metrics = {
+                        set_name: {
+                            metric_name: reduced[set_id, metric_id]
+                            for metric_id, metric_name in enumerate(metric_keys)
+                        }
+                        for set_id, set_name in enumerate(eval_metadata.sets)
+                    }
+                    for set_name, vals in reduced_metrics.items():
+                        count = vals.pop("count")
+                        reduced_metrics[set_name] = {k: v / count for k, v in vals.items()}
+
+            if rank == 0:
+                print("[EVAL_PATCH_ACTIVE] exiting inference_mode before aggregation", flush=True)
+                print(f"\nRunning {len(evaluators)} evaluator(s)...", flush=True)
+
+            for idx, evaluator in enumerate(evaluators):
+                if rank == 0:
+                    print(f"Running evaluator {idx + 1}/{len(evaluators)}: {evaluator.__class__.__name__}", flush=True)
+                    evaluator_save_path = None
+                    if config.checkpoint_path is not None:
+                        evaluator_save_path = os.path.join(
+                            config.checkpoint_path,
+                            f"evaluator_{evaluator.__class__.__name__}_step_{train_state.step}",
+                        )
+                        os.makedirs(evaluator_save_path, exist_ok=True)
+                else:
+                    evaluator_save_path = None
+
+                metrics = evaluator.result(evaluator_save_path, rank=rank, world_size=world_size, group=cpu_group)
+                if rank == 0 and metrics is not None:
+                    if reduced_metrics is None:
+                        reduced_metrics = {}
+                    reduced_metrics.update(metrics)
+                    print(f"  Completed {evaluator.__class__.__name__}", flush=True)
+
+            if rank == 0:
+                print("All evaluators completed!", flush=True)
+
+            return reduced_metrics
+
+        pretrain.evaluate = patched_evaluate
+        return True
+
+
+    def ensure_patch_applied():
+        try:
+            ok = _patch_pretrain_evaluate()
+            print(f"[PATCH] pretrain.evaluate apply: {ok}", flush=True)
+            return ok
+        except Exception as exc:
+            print(f"[PATCH] pretrain.evaluate error: {exc}", flush=True)
+            return False
+
+
+    if __name__ == "__main__":
+        ensure_patch_applied()

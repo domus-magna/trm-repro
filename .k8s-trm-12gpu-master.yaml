@@ -31,6 +31,8 @@ spec:
               value: trm-12gpu-master:29400
             - name: CUDA_HOME
               value: /usr/local/cuda
+            - name: PYTHONPATH
+              value: "/workspace/trm_eval_fix:${PYTHONPATH}"
           ports:
             - containerPort: 29400
               name: rdzv
@@ -39,13 +41,36 @@ spec:
             - |
               source /script/common.sh
               cd /workspace/TinyRecursiveModels
-              run_name="trm_arc2_12gpu_variant"
-              torchrun                 --rdzv_backend=c10d                 --rdzv_endpoint=                 --rdzv_id=                 --nnodes=2:2                 pretrain.py                   arch=trm                   data_paths="[data/arc2concept-aug-1000]"                   arch.L_layers=2                   arch.H_cycles=3 arch.L_cycles=4                   +run_name= ema=True
+              run_name="trm_arc2_12gpu_e10k_i100"
+              torchrun \
+                --rdzv_backend=c10d \
+                --rdzv_endpoint=${RDZV_ENDPOINT} \
+                --rdzv_id=${run_name} \
+                --nnodes=2:2 \
+                --nproc-per-node=8 \
+                pretrain.py \
+                  arch=trm \
+                  data_paths="[data/arc2concept-aug-1000]" \
+                  arch.L_layers=2 \
+                  arch.H_cycles=3 arch.L_cycles=4 \
+                  +run_name="${run_name}" ema=True epochs=10000 eval_interval=100 \
+                  train.per_gpu_batch=32 train.grad_accum=1
           volumeMounts:
             - name: trm-workspace
               mountPath: /workspace
             - name: script
-              mountPath: /script
+              mountPath: /script/common.sh
+              subPath: common.sh
+            - name: trm-eval-fix
+              mountPath: /workspace/trm_eval_fix
+            - name: trm-eval-overlay
+              mountPath: /workspace/TinyRecursiveModels/pretrain.py
+              subPath: pretrain.py
+            - name: trm-eval-overlay
+              mountPath: /workspace/TinyRecursiveModels/evaluators/arc.py
+              subPath: arc.py
+            - name: dshm
+              mountPath: /dev/shm
           resources:
             limits:
               nvidia.com/gpu: 8
@@ -60,6 +85,15 @@ spec:
           persistentVolumeClaim:
             claimName: trm-workspace-rwx
         - name: script
-          hostPath:
-            path: /Users/alexanderhuth/trm-repro/.k8s-trm-common.sh
-            type: File
+          configMap:
+            name: trm-common-script
+        - name: trm-eval-fix
+          configMap:
+            name: trm-eval-fix
+        - name: trm-eval-overlay
+          configMap:
+            name: trm-eval-overlay
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 8Gi

@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trm-sitecustomize
+data:
+  sitecustomize.py: |
+    # Only patch inference_mode if the module exists (skip during bootstrap)
+    import importlib
+    if importlib.util.find_spec("torch") is not None:
+      import torch
+      if hasattr(torch, "inference_mode") and hasattr(torch, "no_grad"):
+        torch.inference_mode = torch.no_grad
+        print("[SITE] torch.inference_mode patched to no_grad", flush=True)
+      else:
+        print("[SITE] torch missing inference_mode/no_grad", flush=True)
+    else:
+      print("[SITE] torch not installed yet; skipping inference patch", flush=True)
