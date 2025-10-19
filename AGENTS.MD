@@ -39,6 +39,12 @@ export KAGGLE_DS_DIR="$TRM_DIR/kaggle_dataset_arc2_${RUN_NAME}"
 * Do **not** touch model code or flags beyond those specified below.
 * If `PUBLISH_TO_KAGGLE=1`: `~/.kaggle/kaggle.json` exists and has `chmod 600`.
 
+**Checkpoint resume context (as of 2025-10-16 11:20 PT):**
+
+* 4-GPU paper run last good checkpoint: `runs/trm_arc2_4gpu_eval100/checkpoints/Arc2concept-aug-1000-ACT-torch/trm_arc2_4gpu_eval100/step_39085` (≈39,085 optimizer steps completed pre-restart).
+* 8-GPU run last good checkpoint: `runs/trm_arc2_8gpu_eval100/checkpoints/Arc2concept-aug-1000-ACT-torch/trm_arc2_8gpu_eval100/step_62976` (≈62,976 optimizer steps completed pre-restart).
+* Current shim loads weights safely but optimizer step resumes at `0`; adjust any downstream analysis (e.g., WandB, LR schedule assumptions) by offsetting with the checkpoint step above.
+
 ---
 
 ## 1) System sanity & folders
@@ -249,15 +255,17 @@ EOF
 fi
 ```
 
+> Current packaging (2025-10-18): we ship the checkpoint together with all Python 3.11 wheels in `seconds0/trm-offline-wheels-py311`. The dataset root now contains `model.ckpt`, so downstream notebooks only need to attach this wheels bundle plus the clean repo snapshot.
+
 ---
 
 ## 8) Done — handoff to Kaggle Notebook
 
-**Notebook steps (human-operated in Kaggle UI):**
+**Notebook/Kaggle Code steps:**
 
-1. New Notebook → **Add Data** → attach `/${KAGGLE_USERNAME}/${KAGGLE_DATASET_SLUG}`.
-2. (Recommended) `git clone` the TRM repo in the notebook, `pip install -r requirements.txt`.
-3. Load `/kaggle/input/<slug>/model.ckpt` with TRM’s code and run evaluation/inference.
+1. Launch the scripted kernel `seconds0/trm-arc-agi-2-inference-py311-offline` (or copy the code from `kaggle/trm_arc2_inference_notebook.py`).
+2. Attach `seconds0/trm-offline-wheels-py311`, `seconds0/trm-repo-clean`, and the `arc-prize-2025` competition dataset. The wheels bundle includes `model.ckpt` in its root.
+3. The kernel builds the ARC evaluation dataset, loads the published checkpoint, and writes the submission to `/kaggle/working/trm_eval_outputs/evaluator_ARC_step_72385/submission.json`.
 
 ---
 
@@ -284,5 +292,3 @@ fi
 * [ ] `artifacts/MANIFEST.txt` written with key paths.
 
 ```
-
-

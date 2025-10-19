@@ -1,0 +1,4 @@
+CHECKPOINT=step_39085
+RUN_DIR=/Users/alexanderhuth/trm-repro/backblaze_restore/run
+TRM_COMMIT=e7b68717f0a6c4cbb4ce6fbef787b14f42083bd9
+PACKAGED_AT=2025-10-16T18:03:13Z

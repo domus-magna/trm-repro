@@ -1,0 +1,331 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trm-pyshim-cm
+data:
+  sitecustomize.py: |
+    # -*- coding: utf-8 -*-
+    """Runtime shim for TRM evaluation (lazy torch/pretrain hooks)."""
+
+    import os
+    import sys
+    import importlib
+    import importlib.abc
+    import importlib.util
+    import re
+    import runpy
+    from importlib.machinery import PathFinder
+
+    print("[PYSHIM] sitecustomize loaded", file=sys.stderr)
+
+    _TORCH_READY = False
+    _TORCH_MODULE = None
+    _ORIG_IM = None
+    _ORIG_GM_IM = None
+    _RESUME_STEP = None
+    _PRINTED_RESUME_LOAD = False
+    _PRINTED_RESUME_STEP = False
+
+
+    def _record_torch(module):
+      global _TORCH_READY, _TORCH_MODULE, _ORIG_IM, _ORIG_GM_IM
+      if _TORCH_READY:
+        return module
+      try:
+        _ORIG_IM = module.inference_mode
+        _ORIG_GM_IM = module.autograd.grad_mode.inference_mode
+        _TORCH_MODULE = module
+        _TORCH_READY = True
+        print("[PYSHIM] inference shim ready", file=sys.stderr)
+      except Exception as exc:  # pragma: no cover - diagnostic
+        print(f"[PYSHIM] torch hook failed: {exc}", file=sys.stderr)
+      return module
+
+
+    def _ensure_torch():
+      global _TORCH_MODULE
+      if _TORCH_READY and _TORCH_MODULE is not None:
+        return _TORCH_MODULE
+      try:
+        import torch as _torch  # type: ignore
+      except Exception as exc:  # pragma: no cover - diagnostic
+        print(f"[PYSHIM] torch import failed during ensure: {exc}", file=sys.stderr)
+        raise
+      return _record_torch(_torch)
+
+
+    def _parse_resume_step(path):
+      if not path:
+        return None
+      m = re.search(r"step_(\d+)", path)
+      if not m:
+        return None
+      try:
+        return int(m.group(1))
+      except ValueError:
+        return None
+
+
+    def _ns_get(namespace, name, default=None):
+      if isinstance(namespace, dict):
+        return namespace.get(name, default)
+      return getattr(namespace, name, default)
+
+
+    def _ns_set(namespace, name, value):
+      if isinstance(namespace, dict):
+        namespace[name] = value
+      else:
+        setattr(namespace, name, value)
+
+
+    def _ns_has(namespace, name):
+      if isinstance(namespace, dict):
+        return name in namespace
+      return hasattr(namespace, name)
+
+
+    def _ns_del(namespace, name):
+      if isinstance(namespace, dict):
+        namespace.pop(name, None)
+      elif hasattr(namespace, name):
+        delattr(namespace, name)
+
+
+    class _LoaderProxy(importlib.abc.Loader):
+      def __init__(self, real_loader, post_hook):
+        self._real = real_loader
+        self._post_hook = post_hook
+
+      def create_module(self, spec):  # pragma: no cover
+        if hasattr(self._real, "create_module"):
+          return self._real.create_module(spec)
+        return None
+
+      def exec_module(self, module):
+        self._real.exec_module(module)
+        self._post_hook(module)
+
+
+    def _wrap_evaluate(namespace):
+        applied = False
+        try:
+          if _ns_get(namespace, "_EVAL_PATCH_APPLIED"):
+            return
+
+          _torch = _ensure_torch()
+          original_evaluate = _ns_get(namespace, "evaluate")
+          if original_evaluate is None:
+            raise AttributeError("evaluate missing")
+
+          def _inference_as_no_grad(mode=True, *args, **kwargs):
+            if not mode:
+              target = _ORIG_IM or _torch.inference_mode
+              return target(mode, *args, **kwargs)
+            return _torch.no_grad()
+
+          def _wrapped_evaluate(*args, **kwargs):
+            im_backup = _torch.inference_mode
+            gm_backup = getattr(_torch.autograd.grad_mode, "inference_mode", None)
+            had_module_attr = _ns_has(namespace, "inference_mode")
+            module_backup = _ns_get(namespace, "inference_mode")
+
+            _torch.inference_mode = _inference_as_no_grad
+            if gm_backup is not None:
+              def _gm_shim(mode=True, *g_args, **g_kwargs):
+                if not mode:
+                  target = _ORIG_GM_IM or gm_backup
+                  return target(mode, *g_args, **g_kwargs)
+                return _torch.no_grad()
+              _torch.autograd.grad_mode.inference_mode = _gm_shim
+            _ns_set(namespace, "inference_mode", _inference_as_no_grad)
+
+            try:
+              return original_evaluate(*args, **kwargs)
+            finally:
+              _torch.inference_mode = im_backup
+              if gm_backup is not None:
+                _torch.autograd.grad_mode.inference_mode = gm_backup
+              if had_module_attr:
+                _ns_set(namespace, "inference_mode", module_backup)
+              else:
+                _ns_del(namespace, "inference_mode")
+
+          _wrapped_evaluate._PYSHIM_WRAPPED = True  # type: ignore[attr-defined]
+          _ns_set(namespace, "evaluate", _wrapped_evaluate)
+          applied = True
+
+          original_load_checkpoint = _ns_get(namespace, "load_checkpoint")
+          if callable(original_load_checkpoint) and not getattr(original_load_checkpoint, "_PYSHIM_WRAPPED", False):
+            def _wrapped_load_checkpoint(model, config):
+              global _RESUME_STEP, _PRINTED_RESUME_LOAD
+              print("[PYSHIM] load_checkpoint wrapper invoked", file=sys.stderr, flush=True)
+              load_path = getattr(config, "load_checkpoint", None)
+              resume_step = _parse_resume_step(load_path)
+              if resume_step is not None:
+                _RESUME_STEP = resume_step
+                try:
+                  setattr(config, "_PYSHIM_RESUME_STEP", resume_step)
+                except Exception:
+                  pass
+                if not _PRINTED_RESUME_LOAD:
+                  print(f"[PYSHIM] resume checkpoint detected at step={resume_step}", file=sys.stderr, flush=True)
+                  _PRINTED_RESUME_LOAD = True
+              return original_load_checkpoint(model, config)
+            _wrapped_load_checkpoint._PYSHIM_WRAPPED = True  # type: ignore[attr-defined]
+            _ns_set(namespace, "load_checkpoint", _wrapped_load_checkpoint)
+            print("[PYSHIM] load_checkpoint wrapper installed", file=sys.stderr, flush=True)
+
+          original_init_train_state = _ns_get(namespace, "init_train_state")
+          if callable(original_init_train_state) and not getattr(original_init_train_state, "_PYSHIM_WRAPPED", False):
+            def _wrapped_init_train_state(config, *args, **kwargs):
+              global _RESUME_STEP, _PRINTED_RESUME_STEP
+              resume_step = getattr(config, "_PYSHIM_RESUME_STEP", None)
+              if resume_step is None:
+                resume_step = _parse_resume_step(getattr(config, "load_checkpoint", None))
+              if resume_step is None:
+                env_step = os.environ.get("RESUME_STEP")
+                if env_step is not None:
+                  try:
+                    resume_step = int(env_step)
+                  except ValueError:
+                    resume_step = None
+              if resume_step is not None:
+                try:
+                  setattr(config, "_PYSHIM_RESUME_STEP", resume_step)
+                except Exception:
+                  pass
+                _RESUME_STEP = resume_step
+              state = original_init_train_state(config, *args, **kwargs)
+              if _RESUME_STEP:
+                state.step = int(_RESUME_STEP)
+                if not _PRINTED_RESUME_STEP:
+                  print(f"[PYSHIM] train state resume step set to {_RESUME_STEP}", file=sys.stderr, flush=True)
+                  _PRINTED_RESUME_STEP = True
+              return state
+            _wrapped_init_train_state._PYSHIM_WRAPPED = True  # type: ignore[attr-defined]
+            _ns_set(namespace, "init_train_state", _wrapped_init_train_state)
+            print("[PYSHIM] init_train_state wrapper installed", file=sys.stderr, flush=True)
+        except Exception as exc:  # pragma: no cover - diagnostic
+          print(f"[PYSHIM] evaluate patch failed: {exc}", file=sys.stderr)
+
+        _ns_set(namespace, "_EVAL_PATCH_APPLIED", applied)
+        print(f"[PYSHIM] pretrain import; evaluate patch applied={applied}", file=sys.stderr)
+
+
+    def _normalize_path(path):
+      if path is None:
+        return None
+      try:
+        return [str(p) for p in path]
+      except TypeError:
+        return path
+
+
+    def _patch_run_code():
+      if not hasattr(runpy, "_run_code"):
+        return
+      if getattr(runpy, "_PYSHIM_RUN_PATCHED", False):
+        return
+
+      original_run_code = runpy._run_code
+      target_keys = {"evaluate", "load_checkpoint", "init_train_state"}
+
+      class _InstrumentedGlobals(dict):
+        def __init__(self, backing):
+          self._backing = backing
+          self._ready = {key for key in target_keys if _ns_has(backing, key)}
+
+        def _maybe_patch(self):
+          if target_keys.issubset(self._ready) and not self._backing.get("_EVAL_PATCH_APPLIED"):
+            print("[PYSHIM] run_code namespace ready; applying wrappers", file=sys.stderr, flush=True)
+            try:
+              _wrap_evaluate(self._backing)
+            except Exception as exc:  # pragma: no cover - diagnostic
+              print(f"[PYSHIM] run_code patch failed: {exc}", file=sys.stderr)
+
+        def __getitem__(self, key):
+          return self._backing[key]
+
+        def __setitem__(self, key, value):
+          self._backing[key] = value
+          if key in target_keys:
+            self._ready.add(key)
+            self._maybe_patch()
+
+        def __contains__(self, key):
+          return key in self._backing
+
+        def get(self, key, default=None):
+          return self._backing.get(key, default)
+
+        def update(self, other=None, **kwargs):
+          if other:
+            if hasattr(other, "keys"):
+              for k in other.keys():
+                self[k] = other[k]
+            else:
+              for k, v in other:
+                self[k] = v
+          for k, v in kwargs.items():
+            self[k] = v
+
+        def keys(self):
+          return self._backing.keys()
+
+        def items(self):
+          return self._backing.items()
+
+        def values(self):
+          return self._backing.values()
+
+        def pop(self, key, default=None):
+          return self._backing.pop(key, default)
+
+      def _wrapped_run_code(code, run_globals, init_globals=None,
+                            mod_name=None, mod_spec=None,
+                            pkg_name=None, script_name=None):
+        script_path = script_name or (mod_spec.origin if mod_spec else None)
+        should_patch = bool(script_path and str(script_path).endswith("pretrain.py"))
+        if should_patch and not isinstance(run_globals, _InstrumentedGlobals):
+          proxy = _InstrumentedGlobals(run_globals)
+          print(f"[PYSHIM] run_code intercept for {script_path}", file=sys.stderr, flush=True)
+          result = original_run_code(code, proxy, init_globals, mod_name, mod_spec, pkg_name, script_name)
+          return proxy._backing
+        return original_run_code(code, run_globals, init_globals, mod_name, mod_spec, pkg_name, script_name)
+
+      runpy._run_code = _wrapped_run_code
+      runpy._PYSHIM_RUN_PATCHED = True
+
+
+    class _ShimFinder(importlib.abc.MetaPathFinder):
+      def find_spec(self, fullname, path=None, target=None):
+        search_path = _normalize_path(path)
+        spec = PathFinder.find_spec(fullname, search_path)
+        if not spec or not spec.loader:
+          return None
+        if fullname == "torch":
+          spec.loader = _LoaderProxy(spec.loader, _record_torch)
+          return spec
+        if fullname == "pretrain" or fullname.endswith(".pretrain"):
+          spec.loader = _LoaderProxy(spec.loader, _wrap_evaluate)
+          return spec
+        return None
+
+    sys.meta_path.insert(0, _ShimFinder())
+    _patch_run_code()
+  precheck.py: |
+    import sys
+    import importlib
+
+    import torch
+
+    print("[PRECHECK] torch.inference_mode is", torch.inference_mode, file=sys.stderr)
+
+    try:
+        pretrain = importlib.import_module("pretrain")
+    except Exception as exc:
+        print("[PRECHECK] import pretrain failed:", exc, file=sys.stderr)
+        raise
+
+    print("[PRECHECK] eval patch applied =", getattr(pretrain, "_EVAL_PATCH_APPLIED", False), file=sys.stderr)

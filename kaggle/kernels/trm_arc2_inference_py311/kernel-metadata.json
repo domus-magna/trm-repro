@@ -1,0 +1,20 @@
+{
+  "id": "seconds0/trm-arc-agi-2-inference-py311-offline",
+  "title": "TRM ARC-AGI-2 Inference Py311 Offline",
+  "code_file": "trm_arc2_inference_notebook.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": false,
+  "dataset_sources": [
+    "seconds0/trm-offline-wheels-py311",
+    "seconds0/trm-repo-clean"
+  ],
+  "competition_sources": [
+    "arc-prize-2025"
+  ],
+  "kernel_sources": [],
+  "keywords": [],
+  "accelerator": "gpu"
+}

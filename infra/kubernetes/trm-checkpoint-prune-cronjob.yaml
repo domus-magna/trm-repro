@@ -1,0 +1,106 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: trm-checkpoint-prune
+spec:
+  schedule: "0 * * * *"
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: prune-sync
+              image: alpine:3.19
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: KEEP
+                  value: "10"
+                - name: BASE_DIR
+                  value: /workspace/TinyRecursiveModels/checkpoints/Arc2concept-aug-1000-ACT-torch
+              envFrom:
+                - secretRef:
+                    name: trm-backblaze
+              command:
+                - /bin/sh
+                - -lc
+                - |
+                  set -euo pipefail
+                  apk add --no-cache python3 rclone >/dev/null
+                  python3 - <<'PY'
+                  import os
+                  import re
+                  import sys
+
+                  base_dir = os.environ.get("BASE_DIR")
+                  keep = int(os.environ.get("KEEP", "10"))
+                  if not base_dir or not os.path.isdir(base_dir):
+                      print(f"[prune] base directory missing: {base_dir}", file=sys.stderr)
+                      sys.exit(0)
+
+                  pattern_ckpt = re.compile(r"step_(\d+)$")
+                  pattern_eval = re.compile(r"evaluator_.*_step_(\d+)$")
+
+                  def _collect_sorted_entries(run_dir, pattern, expect_dir):
+                      """Return [(mtime, name)] sorted newest-first for entries matching pattern."""
+                      entries = []
+                      for name in os.listdir(run_dir):
+                          if not pattern.fullmatch(name):
+                              continue
+                          path = os.path.join(run_dir, name)
+                          if expect_dir and not os.path.isdir(path):
+                              continue
+                          if not expect_dir and not os.path.isfile(path):
+                              continue
+                          try:
+                              mtime = os.path.getmtime(path)
+                          except FileNotFoundError:
+                              continue
+                          entries.append((mtime, name))
+                      entries.sort(reverse=True)
+                      return entries
+
+                  for run in sorted(os.listdir(base_dir)):
+                      run_dir = os.path.join(base_dir, run)
+                      if not os.path.isdir(run_dir):
+                          continue
+
+                      steps = _collect_sorted_entries(run_dir, pattern_ckpt, expect_dir=False)
+                      eval_dirs = _collect_sorted_entries(run_dir, pattern_eval, expect_dir=True)
+
+                      if len(steps) > keep:
+                          remove = steps[keep:]
+                          for _, name in remove:
+                              path = os.path.join(run_dir, name)
+                              try:
+                                  os.remove(path)
+                                  print(f"[prune] removed {path}")
+                              except FileNotFoundError:
+                                  pass
+
+                      if len(eval_dirs) > keep:
+                          remove_eval = eval_dirs[keep:]
+                          for _, name in remove_eval:
+                              path = os.path.join(run_dir, name)
+                              if os.path.isdir(path):
+                                  try:
+                                      for root, dirs, files in os.walk(path, topdown=False):
+                                          for file in files:
+                                              os.remove(os.path.join(root, file))
+                                          for d in dirs:
+                                              os.rmdir(os.path.join(root, d))
+                                      os.rmdir(path)
+                                      print(f"[prune] removed {path}/")
+                                  except FileNotFoundError:
+                                      pass
+                  PY
+                  rclone copy "${BASE_DIR}" "trmb2:${B2_BUCKET:-trm-arc2-checkpoints}" --update --checksum --checkers 8 --transfers 4 --create-empty-src-dirs
+              volumeMounts:
+                - name: trm-workspace
+                  mountPath: /workspace
+          volumes:
+            - name: trm-workspace
+              persistentVolumeClaim:
+                claimName: trm-workspace-rwx

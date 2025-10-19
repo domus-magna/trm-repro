@@ -1,0 +1,17 @@
+{
+  "id": "seconds0/build-adam-atan2-wheel-py311-cu125",
+  "title": "Build adam-atan2 wheel (py311 cu125)",
+  "code_file": "build_adam_atan2_wheel.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": false,
+  "dataset_sources": [
+    "seconds0/trm-offline-wheels-py311"
+  ],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "keywords": [],
+  "accelerator": "gpu"
+}

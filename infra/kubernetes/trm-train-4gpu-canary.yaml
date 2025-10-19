@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: trm-train-arc2-4gpu
+  name: trm-train-arc2-4gpu-canary
 spec:
   backoffLimit: 0
   template:
@@ -38,18 +38,17 @@ spec:
               cd /workspace/TinyRecursiveModels
               export PATH="/root/.local/bin:${PATH}"
               python3 -m precheck
-              run_name="trm_arc2_4gpu_eval100"
-              resume_ckpt="checkpoints/Arc2concept-aug-1000-ACT-torch/${run_name}/step_39085"
-              export RESUME_STEP="${resume_ckpt##*_}"
+              run_name="trm_arc2_4gpu_eval5"
+              resume_ckpt="checkpoints/Arc2concept-aug-1000-ACT-torch/${run_name}/step_2628"
               python3 -m torch.distributed.run --nproc_per_node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
                 arch=trm \
                 data_paths="[data/arc2concept-aug-1000]" \
                 arch.L_layers=2 \
                 arch.H_cycles=3 arch.L_cycles=4 \
                 +run_name="${run_name}" ema=True \
-                checkpoint_every_eval=True \
-                epochs=10000 eval_interval=100 \
-                +load_checkpoint="${resume_ckpt}"
+                checkpoint_every_eval=False \
+                epochs=10000 eval_interval=5 \
+                load_checkpoint="${resume_ckpt}"
           volumeMounts:
             - name: trm-workspace
               mountPath: /workspace

@@ -34,22 +34,29 @@ spec:
               value: "1"
             - name: HYDRA_FULL_ERROR
               value: "1"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: PYTHONPATH
+              value: /usr/local/lib/python3.10/dist-packages:/workspace/TinyRecursiveModels:/workspace
           command: ["bash","-lc"]
           args:
             - |
               . /script/common.sh
               cd /workspace/TinyRecursiveModels
-              run_name="trm_arc2_8gpu_variant"
-              export PYTHONPATH="/workspace/pyshim:${PYTHONPATH:-}"
-              python3 -m trm_eval_patch
-              torchrun --nproc-per-node 8 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+              export PATH="/root/.local/bin:${PATH}"
+              python3 -m precheck
+              run_name="trm_arc2_8gpu_eval100"
+              resume_ckpt="checkpoints/Arc2concept-aug-1000-ACT-torch/${run_name}/step_62976"
+              export RESUME_STEP="${resume_ckpt##*_}"
+              python3 -m torch.distributed.run --nproc_per_node 8 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
                 arch=trm \
                 data_paths="[data/arc2concept-aug-1000]" \
                 arch.L_layers=2 \
                 arch.H_cycles=3 arch.L_cycles=4 \
                 +run_name=${run_name} ema=True \
                 checkpoint_every_eval=True \
-                epochs=10000 eval_interval=1
+                epochs=10000 eval_interval=100 \
+                +load_checkpoint="${resume_ckpt}"
           volumeMounts:
             - name: trm-workspace
               mountPath: /workspace
@@ -59,8 +66,8 @@ spec:
             - name: trm-eval-overlay
               mountPath: /workspace/TinyRecursiveModels/evaluators/arc.py
               subPath: arc.py
-            - name: trm-pretrain-eval-patch
-              mountPath: /workspace/pyshim
+            - name: trm-pyshim
+              mountPath: /usr/local/lib/python3.10/dist-packages
             - name: dshm
               mountPath: /dev/shm
           resources:
@@ -82,9 +89,9 @@ spec:
         - name: trm-eval-overlay
           configMap:
             name: trm-eval-overlay
-        - name: trm-pretrain-eval-patch
+        - name: trm-pyshim
           configMap:
-            name: trm-pretrain-eval-patch
+            name: trm-pyshim-cm
         - name: dshm
           emptyDir:
             medium: Memory

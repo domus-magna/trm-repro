@@ -1,0 +1,9 @@
+{
+  "title": "TRM ARC-AGI-2 Weights (trm_arc2_4gpu_eval100)",
+  "id": "alexthuth/trm-arc2-weights-trm_arc2_4gpu_eval100",
+  "licenses": [
+    {
+      "name": "cc-by-4.0"
+    }
+  ]
+}

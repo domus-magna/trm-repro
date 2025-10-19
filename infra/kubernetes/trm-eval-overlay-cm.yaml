@@ -4,9 +4,12 @@ metadata:
   name: trm-eval-overlay
 data:
   arc.py: |
-    # PATCH: gather detached CPU clones (+ a sentinel print).
+    # PATCH: resilient ARC evaluator gather with CPU clones + sentinels.
+    import sys
+    import os
+    import json
+    import copy
     from typing import Dict, Sequence, Optional
-    import os, json, copy
 
     import torch
     import numpy as np
@@ -15,6 +18,31 @@ data:
 
     from dataset.build_arc_dataset import inverse_aug, grid_hash, arc_grid_to_np
     from dataset.common import PuzzleDatasetMetadata
+
+    print("[EVAL_PATCH_ACTIVE] ARC evaluator overlay loaded", file=sys.stderr)
+
+    def _to_host_normal(obj):
+        if obj is None or isinstance(obj, (str, int, float, bool)):
+            return obj
+        if isinstance(obj, torch.Tensor):
+            return obj.detach().cpu().clone()
+        if isinstance(obj, dict):
+            return {k: _to_host_normal(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            T = type(obj)
+            return T(_to_host_normal(x) for x in obj)
+        return copy.deepcopy(obj)
+
+    def _gather_object_normal(obj, dst: int = 0, group: Optional[torch.distributed.ProcessGroup] = None):
+        with torch.inference_mode(False):
+            payload = _to_host_normal(obj)
+            if dist.is_available() and dist.is_initialized():
+                world_size = dist.get_world_size(group=group)
+                rank = dist.get_rank(group=group)
+                recv = [None] * world_size if rank == dst else None
+                dist.gather_object(payload, recv, dst=dst, group=group)
+                return recv
+            return [payload]
 
     @njit
     def _crop(grid: np.ndarray):
@@ -111,31 +139,17 @@ data:
                 self._local_preds[orig_name][input_hash].append((pred_hash, float(q)))
         
         def result(self, save_path: Optional[str], rank: int, world_size: int, group: Optional[torch.distributed.ProcessGroup] = None) -> Optional[Dict[str, float]]:
-            # Gather predictions to rank 0 for voting — clone to CPU to avoid InferenceMode issues
-            def _to_cpu_plain(obj):
-                if obj is None or isinstance(obj, (str, int, float, bool)):
-                    return obj
-                if isinstance(obj, torch.Tensor):
-                    return obj.detach().clone().cpu()
-                if isinstance(obj, dict):
-                    return {k: _to_cpu_plain(v) for k, v in obj.items()}
-                if isinstance(obj, (list, tuple)):
-                    T = type(obj)
-                    return T(_to_cpu_plain(x) for x in obj)
-                return copy.deepcopy(obj)
+            gathered = _gather_object_normal((self._local_hmap, self._local_preds), dst=0, group=group)
 
-            local_hmap_cpu  = _to_cpu_plain(self._local_hmap)
-            local_preds_cpu = _to_cpu_plain(self._local_preds)
-
-            if rank == 0:
-                print("[EVAL_PATCH_ACTIVE] using detached CPU clones for gather_object")
-
-            global_hmap_preds = [None for _ in range(world_size)] if rank == 0 else None
-            dist.gather_object((local_hmap_cpu, local_preds_cpu), global_hmap_preds, dst=0, group=group)
-            
-            # Rank 0 logic
             if rank != 0:
                 return
+
+            if gathered is None:
+                return
+
+            print("[EVAL_PATCH_ACTIVE] using detached CPU clones for gather_object", file=sys.stderr)
+
+            global_hmap_preds = gathered
 
             submission = {}
             correct = [0.0 for _ in range(len(self.pass_Ks))]

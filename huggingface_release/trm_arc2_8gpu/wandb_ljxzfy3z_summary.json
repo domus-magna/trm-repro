@@ -1,0 +1,31 @@
+{
+  "ARC/pass@1": 0.016666666666666666,
+  "ARC/pass@10": 0.058333333333333334,
+  "ARC/pass@100": 0.08194444444444443,
+  "ARC/pass@1000": 0.1375,
+  "ARC/pass@2": 0.029166666666666667,
+  "ARC/pass@5": 0.05,
+  "_runtime": 85909.379349254,
+  "_step": 72385,
+  "_timestamp": 1760699653.5137408,
+  "_wandb": {
+    "runtime": 85909
+  },
+  "all": {
+    "accuracy": 0.7035274505615234,
+    "exact_accuracy": 0.01180859562009573,
+    "lm_loss": 1.7025526762008667,
+    "q_halt_accuracy": 0.7986552715301514,
+    "q_halt_loss": 0.6473734378814697,
+    "steps": 16
+  },
+  "num_params": 6829058,
+  "train/accuracy": 0.9925558741499738,
+  "train/count": 1,
+  "train/exact_accuracy": 0.7682926829268293,
+  "train/lm_loss": 0.13401732932577604,
+  "train/lr": 0.0001,
+  "train/q_halt_accuracy": 0.8902439024390244,
+  "train/q_halt_loss": 0.1822381503880024,
+  "train/steps": 4.414634146341464
+}
