@@ -111,8 +111,4 @@ python pretrain.py \
 - ARC-AGI data follows the original competition license; do not redistribute raw Kaggle data.
 - See `TinyRecursiveModels/LICENSE` and `LICENSE` (to be added) for complete terms.
 
-## 7. Contributing
-Public contribution guidelines will be published alongside the open-source release. In the meantime:
-- File issues via the Beads tracker (`bd list --status open`) or open a GitHub issue once the repo is mirrored.
-- Run formatting and lint checks before submitting patches.
-- Include provenance updates (`COMMANDS.txt`, `ENVIRONMENT.txt`) when uploading new checkpoints.
+
