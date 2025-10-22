@@ -2,3 +2,19 @@
 .secrets/
 .beads/
 TinyRecursiveModels/
+
+# Temporary working directories
+kaggle/current_kernel/
+kaggle/current_kernel_new/
+kaggle/kernel-metadata.json
+submission_download/
+submission_download_latest/
+submission_investiggation/
+submission_latest/
+
+# Working scripts (not ready for repo)
+scripts/download_kernel_outputs.py
+scripts/validate_submission.py
+
+# Backup files
+*.bak

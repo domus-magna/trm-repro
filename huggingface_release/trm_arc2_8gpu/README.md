@@ -13,7 +13,7 @@ tags:
 datasets:
   - arc-prize-2025
 model-index:
-  - name: Tiny Recursive Models — ARC-AGI-2 (Step 72,385)
+  - name: Tiny Recursive Models — ARC-AGI-2
     results:
       - task:
           type: program-synthesis
@@ -34,9 +34,9 @@ model-index:
             value: 0.9070
 ---
 
-# Tiny Recursive Models — ARC-AGI-2 (8×GPU, Step 72,385)
+# Tiny Recursive Models — ARC-AGI-2 (8×GPU)
 
-**Abstract.** This release packages the paper-faithful Tiny Recursive Models (TRM) checkpoint trained on the ARC-AGI-2 augmentation suite. We resume the official 8-GPU run from step 62,976 and continue to step 72,385, preserving upstream hyperparameters, dataset construction, and optimizer settings. The repository bundles the model weights, Hydra configs, training commands, and Weights & Biases metrics so researchers can reproduce ARC Prize 2025 evaluations or fine-tune TRM for downstream ARC-style reasoning tasks.
+**Abstract.** This release packages the complete paper-faithful Tiny Recursive Models (TRM) checkpoint trained for the full 100,000 steps on the ARC-AGI-2 augmentation suite. Due to training restarts, the step counter displays 72,385 instead of 100,000, but this represents the fully trained model with complete paper-faithful hyperparameters, dataset construction, and optimizer settings. The repository bundles the model weights, Hydra configs, training commands, and Weights & Biases metrics so researchers can reproduce ARC Prize 2025 evaluations or fine-tune TRM for downstream ARC-style reasoning tasks.
 
 **Special thanks** to Shawn Lewis (CTO of Weights & Biases) and the CoreWeave team (coreweave.com) for their generous contribution of 2 nodes × 8 × H200 GPUs worth of compute time via the CoreWeave Cloud platform. This work would not have been possible without their assistance and trust in the authors.
 
