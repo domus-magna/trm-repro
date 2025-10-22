@@ -24,19 +24,19 @@ model-index:
           split: evaluation
         metrics:
           - type: accuracy
-            name: Accuracy
-            value: 0.6283
-          - type: loss
-            name: LM Loss
-            value: 2.0186
+            name: ARC Task Solve Rate (pass@2)
+            value: 0.0292
           - type: accuracy
-            name: Halt Accuracy
-            value: 0.9070
+            name: ARC Task Solve Rate (pass@100)
+            value: 0.0819
+          - type: accuracy
+            name: pass@1
+            value: 0.0167
 ---
 
 # Tiny Recursive Models — ARC-AGI-2 (8×GPU)
 
-**Abstract.** This release packages the complete paper-faithful Tiny Recursive Models (TRM) checkpoint trained for the full 100,000 steps on the ARC-AGI-2 augmentation suite. Due to training restarts, the step counter displays 72,385 instead of 100,000, but this represents the fully trained model with complete paper-faithful hyperparameters, dataset construction, and optimizer settings. The repository bundles the model weights, Hydra configs, training commands, and Weights & Biases metrics so researchers can reproduce ARC Prize 2025 evaluations or fine-tune TRM for downstream ARC-style reasoning tasks.
+**Abstract.** This release packages the complete paper-faithful Tiny Recursive Models (TRM) checkpoint achieving **2.92% task solve rate (pass@2)** on ARC-AGI-2, the official ARC Prize 2025 competition metric. The model was trained for the full 100,000 steps (step counter displays 72,385 due to training restarts). With increased sampling, the model achieves 8.19% at pass@100. The repository bundles the model weights, Hydra configs, training commands, and Weights & Biases metrics so researchers can reproduce ARC Prize 2025 evaluations or fine-tune TRM for downstream ARC-style reasoning tasks.
 
 **Special thanks** to Shawn Lewis (CTO of Weights & Biases) and the CoreWeave team (coreweave.com) for their generous contribution of 2 nodes × 8 × H200 GPUs worth of compute time via the CoreWeave Cloud platform. This work would not have been possible without their assistance and trust in the authors.
 
@@ -87,12 +87,24 @@ This release reproduces the ARC-AGI-2 configuration described in the TRM paper u
 - `ARC/pass@1000`: **13.75 %**
 
 ## Evaluation
-- **ARC Prize 2025 public evaluation (Kaggle GPU)**  
-  - Accuracy: **0.6283**  
-  - LM Loss: **2.0186**  
-  - Halt accuracy: **0.907**
-- Evaluator script: `TinyRecursiveModels/evaluators/arc.py` with default two-attempt submission writer.  
-- Submission artifact: `/kaggle/working/trm_eval_outputs/evaluator_ARC_step_72385/submission.json`.
+
+### ARC-AGI-2 Task Solve Rates
+**These are the real puzzle-solving performance metrics:**
+- **pass@1**: 1.67% (single attempt per task)
+- **pass@2**: **2.92%** (official ARC Prize 2025 competition metric)
+- **pass@10**: 5.83%
+- **pass@100**: 8.19%
+- **pass@1000**: 13.75%
+
+### Model-Level Metrics
+**These measure internal model behavior, not task success:**
+- Token-level accuracy: 62.83% (not indicative of puzzle-solving)
+- LM Loss: 2.0186
+- Halt accuracy: 90.7% (ACT controller stopping mechanism)
+
+### Evaluation Details
+- Evaluator script: `TinyRecursiveModels/evaluators/arc.py` with default two-attempt submission writer
+- Submission artifact: `/kaggle/working/trm_eval_outputs/evaluator_ARC_step_72385/submission.json`
 
 ## How to Use
 Install TinyRecursiveModels (commit above) and load the checkpoint via PyTorch:

@@ -1,6 +1,6 @@
 # Tiny Recursive Models — ARC-AGI-2 Reproduction
 
-**Abstract.** This repository packages a paper-faithful reproduction of Tiny Recursive Models (TRM) on the ARC-AGI-2 dataset, trained for the full 100,000 steps as specified in the paper. Due to training restarts, the step counter displays 72,385 instead of 100,000, but this checkpoint represents the complete paper-faithful training run, preserving upstream hyperparameters, dataset construction, and optimizer settings. We provide the final checkpoint, Kaggle-ready assets, and documentation to reproduce evaluation and training end-to-end.
+**Abstract.** This repository packages a paper-faithful reproduction of Tiny Recursive Models (TRM) on the ARC-AGI-2 dataset, achieving **2.92% task solve rate (pass@2)**, the official ARC Prize 2025 competition metric. The model was trained for the full 100,000 steps as specified in the paper (step counter displays 72,385 due to training restarts). With increased sampling, the model achieves 8.19% at pass@100. We provide the final checkpoint, Kaggle-ready assets, and documentation to reproduce evaluation and training end-to-end.
 
 > **Special thanks** to Shawn Lewis (CTO of Weights & Biases) and the CoreWeave team (coreweave.com) for their generous contribution of 2 nodes × 8 × H200 GPUs worth of compute time via the CoreWeave Cloud platform. This work would not have been possible without their assistance and trust in the authors.
 
