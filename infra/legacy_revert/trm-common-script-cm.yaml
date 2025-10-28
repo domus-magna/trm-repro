@@ -39,3 +39,79 @@ data:
     python3 -c "import adam_atan2, adam_atan2_backend; print('[bootstrap] adam_atan2 version', getattr(adam_atan2, '__version__', 'unknown')); print('[bootstrap] adam_atan2_backend', adam_atan2_backend.__file__)" || { echo '[bootstrap] adam_atan2 diagnostics failed' >&2; exit 14; }
     # Verify dataset exists
     [ -d data/arc2concept-aug-1000 ] || { echo 'Dataset missing on RWX PVC'; ls -la data || true; exit 2; }
+    python3 - <<'PY'
+import os
+import pathlib
+import textwrap
+
+pretrain_path = pathlib.Path("pretrain.py")
+src = pretrain_path.read_text()
+
+step_marker = "[resume] initializing train_state.step"
+if step_marker not in src:
+    if "import re" not in src:
+        src = src.replace("import math\n", "import math\nimport re\n", 1)
+    init_needle = textwrap.dedent(
+        """
+        def init_train_state(config: PretrainConfig, train_metadata: PuzzleDatasetMetadata, rank: int, world_size: int):
+            # Estimated total training steps
+            total_steps = int(config.epochs * train_metadata.total_groups * train_metadata.mean_puzzle_examples / config.global_batch_size)
+
+            # Model
+            model, optimizers, optimizer_lrs = create_model(config, train_metadata, rank=rank, world_size=world_size)
+
+            return TrainState(
+                step=0,
+                total_steps=total_steps,
+
+                model=model,
+                optimizers=optimizers,
+                optimizer_lrs=optimizer_lrs,
+                carry=None
+            )
+        """
+    )
+    if init_needle not in src:
+        raise SystemExit("[common.sh] Unable to locate init_train_state definition for resume step injection")
+    init_patch = textwrap.dedent(
+        """
+        def init_train_state(config: PretrainConfig, train_metadata: PuzzleDatasetMetadata, rank: int, world_size: int):
+            # Estimated total training steps
+            total_steps = int(config.epochs * train_metadata.total_groups * train_metadata.mean_puzzle_examples / config.global_batch_size)
+
+            # Model
+            model, optimizers, optimizer_lrs = create_model(config, train_metadata, rank=rank, world_size=world_size)
+
+            resume_step = 0
+            env_resume = os.environ.get("RESUME_EXPECTED_STEP")
+            if env_resume:
+                try:
+                    resume_step = max(resume_step, int(env_resume))
+                except ValueError:
+                    print(f"[resume] ignoring invalid RESUME_EXPECTED_STEP={env_resume!r}", flush=True)
+            if config.load_checkpoint:
+                import re
+                match = re.search(r"step_(\d+)", config.load_checkpoint)
+                if match:
+                    try:
+                        resume_step = max(resume_step, int(match.group(1)))
+                    except ValueError:
+                        print(f"[resume] failed to parse step from {config.load_checkpoint!r}", flush=True)
+            if resume_step:
+                print(f"[resume] initializing train_state.step to {resume_step}", flush=True)
+
+            return TrainState(
+                step=resume_step,
+                total_steps=total_steps,
+
+                model=model,
+                optimizers=optimizers,
+                optimizer_lrs=optimizer_lrs,
+                carry=None
+            )
+        """
+    )
+    src = src.replace(init_needle, init_patch, 1)
+
+pretrain_path.write_text(src)
+PY
