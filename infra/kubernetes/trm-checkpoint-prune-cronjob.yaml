@@ -2,6 +2,7 @@ apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: trm-checkpoint-prune
+  namespace: trm
 spec:
   schedule: "0 * * * *"
   successfulJobsHistoryLimit: 1

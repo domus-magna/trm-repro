@@ -338,19 +338,6 @@ if not (REPO_DIR / "dataset").exists():
 
 print("Repo root entries:", sorted(p.name for p in REPO_DIR.iterdir())[:12])
 
-identifier_mode = os.environ.get("ARC_IDENTIFIER_MODE", "legacy").lower()
-use_legacy_identifiers = identifier_mode != "sorted"
-if use_legacy_identifiers:
-    legacy_builder = REPO_DIR / "dataset" / "build_arc_dataset_legacy.py"
-    if legacy_builder.exists():
-        shutil.copy(legacy_builder, REPO_DIR / "dataset" / "build_arc_dataset.py")
-        print("Applying legacy identifier mapping (shuffled) to match legacy checkpoints.")
-    else:
-        print("[WARN] Legacy builder not found; falling back to sorted mapping.")
-        use_legacy_identifiers = False
-else:
-    print("Using sorted identifier mapping for dataset build.")
-
 # %% [markdown]
 """
 ## 1. Build ARC evaluation dataset
@@ -365,9 +352,9 @@ DATA_DIR = Path("/kaggle/working/arc_dataset")
 DATA_DIR.mkdir(exist_ok=True)
 ARC_DATA_ROOT = Path("/kaggle/input/arc-prize-2025")
 ARC_PREFIX = str(ARC_DATA_ROOT / "arc-agi")
-ARC_SUBSET = "test"
+ARC_SUBSET = "evaluation"
 
-print("Building test dataset …")
+print(f"Building {ARC_SUBSET} dataset …")
 subprocess.run(
     [
         "python3",
@@ -386,23 +373,6 @@ subprocess.run(
     check=True,
     env={**os.environ, "PYTHONPATH": str(REPO_DIR)},
 )
-
-identifiers_path = DATA_DIR / "identifiers.json"
-if not identifiers_path.exists():
-    raise FileNotFoundError(f"{identifiers_path} missing after dataset build.")
-identifiers_sha256 = hashlib.sha256(identifiers_path.read_bytes()).hexdigest()
-EXPECTED_IDENTIFIER_HASHES = {
-    "legacy": "c364837393c2428e40c6116692fb1b66bf011108ec9930475df306cd779bbfd1",
-    "sorted": "f3fe1a1f0b27b36fd53166ac17faf980e6c7ff9e73ee16d884095a6c860637a5",
-}
-expected_hash = EXPECTED_IDENTIFIER_HASHES["legacy" if use_legacy_identifiers else "sorted"]
-print("ARC identifiers sha256:", identifiers_sha256, "(expected", expected_hash, ")")
-if identifiers_sha256 != expected_hash:
-    raise RuntimeError(
-        "Identifier mapping hash mismatch. Expected sorted mapping "
-        f"{expected_hash}, got {identifiers_sha256}. "
-        "Ensure the dataset builder matches the checkpoint you are evaluating."
-    )
 
 # %% [markdown]
 """

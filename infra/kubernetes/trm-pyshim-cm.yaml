@@ -25,6 +25,13 @@ data:
     _RESUME_STEP = None
     _PRINTED_RESUME_LOAD = False
     _PRINTED_RESUME_STEP = False
+    _WANDB_READY = False
+    _WANDB_MODULE = None
+    _ORIG_WANDB_LOG = None
+    _RESUME_META_LOGGED = False
+    _RESUME_ENV_EXPECTED = os.environ.get("RESUME_EXPECTED_STEP")
+    _RESUME_ENV_CHECKPOINT = os.environ.get("RESUME_CHECKPOINT_PATH")
+    _RESUME_EXPECTED_INT = None
 
 
     def _record_torch(module):
@@ -39,6 +46,61 @@ data:
         print("[PYSHIM] inference shim ready", file=sys.stderr)
       except Exception as exc:  # pragma: no cover - diagnostic
         print(f"[PYSHIM] torch hook failed: {exc}", file=sys.stderr)
+      return module
+
+
+    def _record_wandb(module):
+      global _WANDB_READY, _WANDB_MODULE, _ORIG_WANDB_LOG
+      if _WANDB_READY:
+        return module
+      _WANDB_MODULE = module
+      try:
+        original_log = module.log
+      except Exception as exc:  # pragma: no cover - diagnostic
+        print(f"[PYSHIM] wandb.log unavailable: {exc}", file=sys.stderr, flush=True)
+        _WANDB_READY = True
+        return module
+
+      if getattr(original_log, "_PYSHIM_WRAPPED", False):
+        _WANDB_READY = True
+        return module
+
+      def _inject_resume_metadata():
+        global _RESUME_META_LOGGED
+        if _RESUME_META_LOGGED:
+          return
+        expected = _RESUME_EXPECTED_INT
+        checkpoint = _RESUME_ENV_CHECKPOINT
+        if expected is None or not checkpoint:
+          return
+        payload = {
+          "resume_expected_step": expected,
+          "resume_checkpoint_path": checkpoint,
+        }
+        try:
+          original_log(payload, step=expected, commit=False)
+        except TypeError:
+          try:
+            original_log(payload, step=expected)
+          except Exception as exc:
+            print(f"[PYSHIM] wandb resume metadata log failed: {exc}", file=sys.stderr, flush=True)
+            return
+        except Exception as exc:  # pragma: no cover - diagnostic
+          print(f"[PYSHIM] wandb resume metadata log failed: {exc}", file=sys.stderr, flush=True)
+          return
+        _RESUME_META_LOGGED = True
+        print(f"[PYSHIM] wandb resume metadata emitted for step={expected}", file=sys.stderr, flush=True)
+
+      def _wrapped_log(data=None, *args, **kwargs):
+        if not _RESUME_META_LOGGED:
+          _inject_resume_metadata()
+        return original_log(data, *args, **kwargs)
+
+      _wrapped_log._PYSHIM_WRAPPED = True  # type: ignore[attr-defined]
+      module.log = _wrapped_log
+      _ORIG_WANDB_LOG = original_log
+      _WANDB_READY = True
+      print("[PYSHIM] wandb.log wrapper installed", file=sys.stderr, flush=True)
       return module
 
 
@@ -64,6 +126,33 @@ data:
         return int(m.group(1))
       except ValueError:
         return None
+
+
+    def _validate_resume_env():
+      global _RESUME_EXPECTED_INT, _RESUME_STEP, _RESUME_ENV_CHECKPOINT
+      missing = [name for name in ("RESUME_EXPECTED_STEP", "RESUME_CHECKPOINT_PATH") if not os.environ.get(name)]
+      if missing:
+        raise RuntimeError(f"Missing required resume env vars: {', '.join(sorted(missing))}")
+      raw_expected = os.environ.get("RESUME_EXPECTED_STEP", "")
+      try:
+        expected = int(raw_expected)
+      except ValueError as exc:
+        raise RuntimeError(f"Invalid RESUME_EXPECTED_STEP={raw_expected!r}") from exc
+      checkpoint_path = os.environ.get("RESUME_CHECKPOINT_PATH", "")
+      _RESUME_ENV_CHECKPOINT = checkpoint_path
+      parsed = _parse_resume_step(checkpoint_path)
+      if parsed is not None and parsed != expected:
+        raise RuntimeError(
+          f"Resume checkpoint mismatch: expected step {expected} but path {checkpoint_path!r} resolves to {parsed}"
+        )
+      _RESUME_EXPECTED_INT = expected
+      if _RESUME_STEP is None:
+        _RESUME_STEP = parsed or expected
+      print(
+        f"[PYSHIM] resume env validated (expected step={expected}, checkpoint={checkpoint_path})",
+        file=sys.stderr,
+        flush=True,
+      )
 
 
     def _ns_get(namespace, name, default=None):
@@ -307,10 +396,19 @@ data:
         if fullname == "torch":
           spec.loader = _LoaderProxy(spec.loader, _record_torch)
           return spec
+        if fullname == "wandb":
+          spec.loader = _LoaderProxy(spec.loader, _record_wandb)
+          return spec
         if fullname == "pretrain" or fullname.endswith(".pretrain"):
           spec.loader = _LoaderProxy(spec.loader, _wrap_evaluate)
           return spec
         return None
+
+    try:
+      _validate_resume_env()
+    except Exception as exc:
+      print(f"[PYSHIM] resume env validation failed: {exc}", file=sys.stderr, flush=True)
+      raise
 
     sys.meta_path.insert(0, _ShimFinder())
     _patch_run_code()

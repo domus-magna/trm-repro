@@ -9,7 +9,7 @@ data:
     apt-get update -y || { echo "[bootstrap] apt-get update failed" >&2; exit 10; }
     apt-get install -y --no-install-recommends \
       python3 python3-distutils python3-dev python3-pip python3-venv \
-      git ca-certificates build-essential curl || { echo "[bootstrap] apt-get install failed" >&2; exit 11; }
+      git ca-certificates build-essential curl ninja-build || { echo "[bootstrap] apt-get install failed" >&2; exit 11; }
     update-ca-certificates >/dev/null || true
     python3 -V
     python3 -m pip install --upgrade pip wheel setuptools >/dev/null
@@ -33,6 +33,116 @@ data:
     # Install stable PyTorch cu121 + deps + wandb
     python3 -m pip install --upgrade torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 >/dev/null
     python3 -m pip install -r requirements.txt >/dev/null || true
-    python3 -m pip install --no-build-isolation adam-atan2 wandb >/dev/null
+    python3 -m pip install --upgrade setuptools_scm >/dev/null
+    python3 -m pip uninstall -y adam-atan2 >/dev/null 2>&1 || true
+    python3 -m pip install --no-build-isolation --force-reinstall --no-deps --no-cache-dir --verbose adam-atan2 2>&1 | tee /tmp/pip_adam_install.log
+    python3 -m pip install --upgrade wandb >/dev/null
+    cat /tmp/pip_adam_install.log || true
+    python3 - <<'PY'
+    import importlib
+    import pathlib
+    import sys
+
+    def _fail(msg, exc):
+        print(f"[bootstrap] {msg}: {exc}", file=sys.stderr)
+        raise SystemExit(12)
+
+    try:
+        import torch  # noqa: F401
+    except Exception as exc:
+        _fail("torch import failed after installation", exc)
+
+    try:
+        adam_mod = importlib.import_module("adam_atan2_backend")
+    except Exception as exc:
+        _fail("adam_atan2_backend import failed", exc)
+    else:
+        print(
+            f"[bootstrap] adam_atan2_backend import ok: {pathlib.Path(getattr(adam_mod, '__file__', 'unknown'))}",
+            file=sys.stderr,
+            flush=True,
+        )
+    PY
     # Verify dataset exists
     [ -d data/arc2concept-aug-1000 ] || { echo 'Dataset missing on RWX PVC'; ls -la data || true; exit 2; }
+
+    python3 - <<'PY'
+    import os
+    import pathlib
+    import textwrap
+
+    pretrain_path = pathlib.Path("pretrain.py")
+    src = pretrain_path.read_text()
+
+    guard_marker = "# -- resume guard injected by trm-common-script --"
+    if guard_marker not in src:
+        needle = "    train_state = init_train_state(config, train_metadata, rank=RANK, world_size=WORLD_SIZE)\n"
+        guard = textwrap.dedent(
+            """
+            # -- resume guard injected by trm-common-script --
+            rank_value = globals().get("RANK")
+            if rank_value is None:
+                local_rank = os.environ.get("LOCAL_RANK")
+                try:
+                    rank_value = int(local_rank) if local_rank is not None else 0
+                except ValueError:
+                    rank_value = 0
+            if rank_value == 0:
+                resume_expected = os.environ.get("RESUME_EXPECTED_STEP")
+                if resume_expected:
+                    try:
+                        expected_int = int(resume_expected)
+                    except ValueError as exc:
+                        raise RuntimeError(f"Invalid RESUME_EXPECTED_STEP={resume_expected!r}") from exc
+                    if train_state.step < expected_int:
+                        raise RuntimeError(
+                            f"Resume guard: train_state.step {train_state.step} < expected {expected_int}. "
+                            "Checkpoint may not have been loaded."
+                        )
+
+            """
+        )
+        guard = textwrap.indent(guard, "    ")
+        if needle in src:
+            src = src.replace(needle, needle + guard)
+        else:
+            raise SystemExit("[common.sh] Unable to locate train_state initialization for resume guard injection")
+
+    wandb_marker = "resume_expected_step"
+    wandb_line = "        wandb.init(project=config.project_name, name=config.run_name, config=config.model_dump(), settings=wandb.Settings(_disable_stats=True))  # type: ignore\n"
+    if wandb_marker not in src:
+        snippet = textwrap.indent(
+            textwrap.dedent(
+                """
+                resume_expected = os.environ.get("RESUME_EXPECTED_STEP")
+                resume_checkpoint = os.environ.get("RESUME_CHECKPOINT_PATH")
+                if resume_expected:
+                    try:
+                        wandb.config.update({"resume_expected_step": int(resume_expected)}, allow_val_change=True)
+                    except Exception:
+                        pass
+                    try:
+                        wandb.run.summary["resume_expected_step"] = int(resume_expected)  # type: ignore[index]
+                    except Exception:
+                        pass
+                if resume_checkpoint:
+                    try:
+                        wandb.config.update({"resume_checkpoint_path": resume_checkpoint}, allow_val_change=True)
+                    except Exception:
+                        pass
+                    try:
+                        wandb.run.summary["resume_checkpoint_path"] = resume_checkpoint  # type: ignore[index]
+                    except Exception:
+                        pass
+
+                """
+            ),
+            "        ",
+        )
+        if wandb_line in src:
+            src = src.replace(wandb_line, wandb_line + snippet)
+        else:
+            raise SystemExit("[common.sh] Unable to locate wandb.init for resume metadata injection")
+
+    pretrain_path.write_text(src)
+    PY

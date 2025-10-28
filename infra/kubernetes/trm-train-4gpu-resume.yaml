@@ -1,0 +1,118 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: trm-train-arc2-4gpu-resume
+  namespace: trm
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        node.coreweave.cloud/class: gpu
+      tolerations:
+        - key: is_gpu
+          operator: Equal
+          value: "true"
+          effect: PreferNoSchedule
+      containers:
+        - name: trainer
+          image: nvidia/cuda:12.1.0-devel-ubuntu22.04
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: WANDB_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: wandb-api-key
+                  key: token
+            - name: WANDB_MODE
+              value: online
+            - name: WANDB_PROJECT
+              value: trm-arc2
+            - name: CUDA_HOME
+              value: /usr/local/cuda
+            - name: HYDRA_FULL_ERROR
+              value: "1"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: PYTHONPATH
+              value: /usr/local/lib/python3.10/dist-packages:/workspace/TinyRecursiveModels:/workspace
+            - name: PYTHONFAULTHANDLER
+              value: "1"
+            - name: TORCH_NCCL_ASYNC_ERROR_HANDLING
+              value: "1"
+            - name: NCCL_DEBUG
+              value: INFO
+            - name: NCCL_DEBUG_SUBSYS
+              value: WATCHDOG,GRAPH
+            - name: TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC
+              value: "1200"
+            - name: ARC_EVAL_VERBOSE
+              value: "1"
+            - name: RESUME_CHECKPOINT_PATH
+              value: /workspace/TinyRecursiveModels/checkpoints/Arc2concept-aug-1000-ACT-torch/trm_arc2_4gpu_resume_step51262_plus100k/step_53428
+            - name: RESUME_EXPECTED_STEP
+              value: "53428"
+            - name: RESUME_META_PATH
+              value: /workspace/TinyRecursiveModels/resume_meta_trm_arc2_4gpu_resume_step53428_plus100k_v2.txt
+          command: ["bash","-lc"]
+          args:
+            - |
+              set -euo pipefail
+              source /script/common.sh
+              cd /workspace/TinyRecursiveModels
+              [ -d data/arc2concept-aug-1000 ] || { echo 'dataset missing at /workspace/TinyRecursiveModels/data/arc2concept-aug-1000' >&2; ls -la data || true; exit 2; }
+              export PATH="/root/.local/bin:${PATH}"
+              python3 -m precheck || true
+              run_name="trm_arc2_4gpu_resume_step53428_plus100k_v2"
+              echo "[resume] expecting checkpoint step ${RESUME_EXPECTED_STEP}"
+              echo "[resume] using checkpoint: ${RESUME_CHECKPOINT_PATH}"
+              python3 -m torch.distributed.run --nproc_per_node 4 --rdzv_backend=c10d --rdzv_endpoint=localhost:0 --nnodes=1 pretrain.py \
+                arch=trm \
+                data_paths="[data/arc2concept-aug-1000]" \
+                arch.L_layers=2 \
+                arch.H_cycles=3 arch.L_cycles=4 \
+                +run_name="${run_name}" ema=True \
+                checkpoint_every_eval=True \
+                epochs=30000 eval_interval=50 \
+                global_batch_size=384 \
+                +load_checkpoint="${RESUME_CHECKPOINT_PATH}"
+          volumeMounts:
+            - name: trm-workspace
+              mountPath: /workspace
+            - name: script
+              mountPath: /script/common.sh
+              subPath: common.sh
+            - name: trm-eval-overlay
+              mountPath: /workspace/TinyRecursiveModels/evaluators/arc.py
+              subPath: arc.py
+            - name: trm-pyshim
+              mountPath: /usr/local/lib/python3.10/dist-packages
+            - name: dshm
+              mountPath: /dev/shm
+          resources:
+            limits:
+              nvidia.com/gpu: 4
+              cpu: "8"
+              memory: 64Gi
+            requests:
+              nvidia.com/gpu: 4
+              cpu: "4"
+              memory: 32Gi
+      volumes:
+        - name: trm-workspace
+          persistentVolumeClaim:
+            claimName: trm-workspace-rwx
+        - name: script
+          configMap:
+            name: trm-common-script
+        - name: trm-eval-overlay
+          configMap:
+            name: trm-eval-overlay
+        - name: trm-pyshim
+          configMap:
+            name: trm-pyshim-cm
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Gi

@@ -77,12 +77,17 @@ data:
             eval_metadata: PuzzleDatasetMetadata, 
             submission_K: int = 2, 
             pass_Ks: Sequence[int] = (1, 2, 5, 10, 100, 1000), 
-            aggregated_voting: bool = True):
+            aggregated_voting: bool = True,
+            verbose: bool = False):
             super().__init__()
             self.pass_Ks = pass_Ks
             self.submission_K = submission_K
             self.aggregated_voting = aggregated_voting
             self.blank_identifier_id = eval_metadata.blank_identifier_id
+            if not verbose:
+                env_flag = os.getenv("ARC_EVAL_VERBOSE")
+                verbose = bool(int(env_flag)) if env_flag is not None else False
+            self.verbose = verbose
 
             # Load identifiers and test puzzles
             with open(os.path.join(data_path, "identifiers.json"), "r") as f:
@@ -154,11 +159,17 @@ data:
             submission = {}
             correct = [0.0 for _ in range(len(self.pass_Ks))]
 
+            total_test_examples = 0
+            examples_with_no_predictions = 0
+            examples_with_hash_match = 0
+            examples_with_duplicate_attempts = 0
+
             for name, puzzle in self.test_puzzles.items():
                 # Process test examples in this puzzle
                 submission[name] = []
                 num_test_correct = [0 for _ in range(len(self.pass_Ks))]
-                for pair in puzzle["test"]:
+                for test_idx, pair in enumerate(puzzle["test"]):
+                    total_test_examples += 1
                     input_hash = grid_hash(arc_grid_to_np(pair["input"]))
                     label_hash = grid_hash(arc_grid_to_np(pair["output"]))
                     
@@ -168,9 +179,10 @@ data:
                             p_map.setdefault(h, [0, 0])
                             p_map[h][0] += 1
                             p_map[h][1] += q
-                            
+                    
                     if not len(p_map):
-                        print ("Puzzle {name} has no predictions.")
+                        print(f"Puzzle {name} test example {test_idx} has no predictions.")
+                        examples_with_no_predictions += 1
                         continue
 
                     for h, stats in p_map.items():
@@ -179,24 +191,44 @@ data:
                     p_map = sorted(p_map.items(), key=lambda kv: kv[1], reverse=True)
 
                     # vote for different Ks
+                    hash_matched_in_topk = False
                     for i, k in enumerate(self.pass_Ks):
                         ok = False
                         for h, stats in p_map[:k]:
                             ok |= h == label_hash
-                            
+                        if ok and i == 0:
+                            hash_matched_in_topk = True
+
                         num_test_correct[i] += ok
-                        
-                    # Query grids
+                    
+                    if hash_matched_in_topk:
+                        examples_with_hash_match += 1
+
+                    if self.verbose and total_test_examples <= 10:
+                        print(f"\n[DIAGNOSTIC] Puzzle {name} test {test_idx}:")
+                        print(f"  Input hash:  {input_hash[:16]}...")
+                        print(f"  Label hash:  {label_hash[:16]}...")
+                        print(f"  Top-3 pred hashes:")
+                        for i, (h, stats) in enumerate(p_map[:3]):
+                            match_str = "✓ MATCH" if h == label_hash else ""
+                            print(f"    {i+1}. {h[:16]}... (count={stats[0]}, avg_q={stats[1]:.4f}) {match_str}")
+
+                    # Query grids - iterate through all candidates until we hit submission_K
                     pred_grids = []
-                    for h, stats in p_map[:self.submission_K]:
+                    for h, stats in p_map:
+                        if len(pred_grids) >= self.submission_K:
+                            break
                         for hmap, preds in global_hmap_preds:  # type: ignore
                             if h in hmap:
                                 pred_grids.append(hmap[h])
                                 break
-                            
-                    # Pad to K
+
+                    # Pad to K only if we exhausted candidates
                     while len(pred_grids) < self.submission_K:
                         pred_grids.append(pred_grids[0])
+
+                    if len(pred_grids) >= 2 and np.array_equal(pred_grids[0], pred_grids[1]):
+                        examples_with_duplicate_attempts += 1
                     
                     submission[name].append({f"attempt_{i + 1}": grid.tolist() for i, grid in enumerate(pred_grids)})
 
@@ -211,5 +243,11 @@ data:
 
             # Final result
             all_results = {f"ARC/pass@{k}": correct[i] / len(self.test_puzzles) for i, k in enumerate(self.pass_Ks)}
+
+            print(f"\n[ARC DIAGNOSTICS]")
+            print(f"  Total test examples: {total_test_examples}")
+            print(f"  Examples with no predictions: {examples_with_no_predictions}")
+            print(f"  Examples with top-1 hash match: {examples_with_hash_match} ({100*examples_with_hash_match/max(1,total_test_examples):.1f}%)")
+            print(f"  Examples with duplicate attempts: {examples_with_duplicate_attempts} ({100*examples_with_duplicate_attempts/max(1,total_test_examples):.1f}%)")
 
             return all_results

@@ -1,0 +1,92 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trm-pretrain-overlay
+  namespace: trm
+data:
+  pretrain.py: |
+    import math
+    import os
+    from typing import Any, List
+
+    import torch
+    import torch.distributed as dist
+    import torch.nn as nn
+
+    from dataset.common import PuzzleDatasetMetadata
+    from models import *
+    from pretrain import (
+        ArchConfig,
+        EvaluatorConfig,
+        LossConfig,
+        PretrainConfig,
+        TrainState,
+        load_model_class,
+    )
+
+    # --- copied helpers from original ---
+    def cosine_schedule_with_warmup_lr_lambda(current_step: int, *, base_lr: float, num_warmup_steps: int, num_training_steps: int, min_ratio: float = 0.0, num_cycles: float = 0.5):
+        if current_step < num_warmup_steps:
+            return base_lr * float(current_step) / float(max(1, num_warmup_steps))
+        progress = float(current_step - num_warmup_steps) / float(max(1, num_training_steps - num_warmup_steps))
+        return base_lr * (min_ratio + max(0.0, (1 - min_ratio) * 0.5 * (1.0 + math.cos(math.pi * float(num_cycles) * 2.0 * progress))))
+
+    def create_model(config: PretrainConfig, train_metadata: PuzzleDatasetMetadata, rank: int, world_size: int):
+        model = load_model_class(config.arch.name, "models.")(config.arch, train_metadata)
+        model.cuda()
+        model.eval()
+        model = torch.compile(model)
+        optimizers: List[torch.optim.Optimizer] = []
+        optimizer_lrs: List[float] = []
+        for group_name in ["weight", "bias", "other"]:
+            group = getattr(model, f"optim_{group_name}")
+            optimizers.append(model.optim(group))
+            optimizer_lrs.append(group.lr)
+        return model, optimizers, optimizer_lrs
+
+    def init_train_state(config: PretrainConfig, train_metadata: PuzzleDatasetMetadata, rank: int, world_size: int):
+        total_steps = int(config.epochs * train_metadata.total_groups * train_metadata.mean_puzzle_examples / config.global_batch_size)
+        model, optimizers, optimizer_lrs = create_model(config, train_metadata, rank=rank, world_size=world_size)
+        return TrainState(step=0, total_steps=total_steps, model=model, optimizers=optimizers, optimizer_lrs=optimizer_lrs, carry=None)
+
+    def save_train_state(config: PretrainConfig, train_state: TrainState):
+        if config.checkpoint_path is None:
+            return
+        os.makedirs(config.checkpoint_path, exist_ok=True)
+        torch.save(train_state.model.state_dict(), os.path.join(config.checkpoint_path, f"step_{train_state.step}"))
+
+    def _map_state_keys_to_orig_mod(sd: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
+        mapped = {}
+        for k, v in sd.items():
+            if k.startswith("model.") and not k.startswith("_orig_mod."):
+                mapped[f"_orig_mod.{k}"] = v
+            else:
+                mapped[k] = v
+        return mapped
+
+    def load_checkpoint(model: nn.Module, config: PretrainConfig):
+        if config.load_checkpoint is None:
+            return
+        path = config.load_checkpoint
+        if os.path.isdir(path):
+            # prefer model.ckpt within the dir if present; else data.pkl
+            if os.path.exists(os.path.join(path, "model.ckpt")):
+                path = os.path.join(path, "model.ckpt")
+            elif os.path.exists(os.path.join(path, "data.pkl")):
+                path = os.path.join(path, "data.pkl")
+        print(f"[overlay] Loading checkpoint {path}")
+        sd = torch.load(path, map_location="cuda")
+        if not any(k.startswith("_orig_mod.") for k in sd.keys()):
+            sd = _map_state_keys_to_orig_mod(sd)
+        # Resize puzzle emb if mismatch
+        puzzle_key = "_orig_mod.model.inner.puzzle_emb.weights"
+        try:
+            expected = model.model.puzzle_emb.weights.shape  # type: ignore
+            if puzzle_key in sd and getattr(sd[puzzle_key], "shape", None) != expected:
+                pv = sd[puzzle_key]
+                print(f"[overlay] resizing puzzle_emb from {getattr(pv,'shape',None)} to {expected}")
+                sd[puzzle_key] = torch.mean(pv, dim=0, keepdim=True).expand(expected).contiguous()
+        except Exception as exc:
+            print(f"[overlay] puzzle_emb resize skipped: {exc}")
+        model.load_state_dict(sd, assign=True)
+

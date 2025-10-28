@@ -1,0 +1,89 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: trm-eval-arc2-1gpu-diagnostic
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      nodeSelector: {}
+      containers:
+        - name: evaluator
+          image: nvidia/cuda:12.1.0-devel-ubuntu22.04
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: WANDB_MODE
+              value: offline
+            - name: CUDA_HOME
+              value: /usr/local/cuda
+            - name: HYDRA_FULL_ERROR
+              value: "1"
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: PYTHONPATH
+              value: /usr/local/lib/python3.10/dist-packages:/workspace/TinyRecursiveModels:/workspace
+          command: ["bash","-lc"]
+          args:
+            - |
+              set -euo pipefail
+              source /script/common.sh
+              cd /workspace/TinyRecursiveModels
+              export PATH="/root/.local/bin:${PATH}"
+              echo "[eval] using dataset at data/arc2concept-aug-1000" >&2
+              run_name="trm_eval_kgl_fix_canary"
+              # Prefer latest resume checkpoint if present on PVC
+              ckpt_dir="checkpoints/Arc2concept-aug-1000-ACT-torch/trm_arc2_8gpu_eval100"
+              if [ -d "$ckpt_dir" ]; then
+                last_step=$(ls -1 "$ckpt_dir" | grep -E '^step_' | sort -V | tail -n1 || true)
+                [ -n "$last_step" ] && resume_ckpt="$ckpt_dir/${last_step}" || resume_ckpt="artifacts/8gpu_checkpoint_latest/step_72385"
+              else
+                resume_ckpt="artifacts/8gpu_checkpoint_latest/step_72385"
+              fi
+              echo "[eval] checkpoint: $resume_ckpt" >&2
+              python3 pretrain.py \
+                arch=trm \
+                data_paths="[data/arc2concept-aug-1000]" \
+                +run_name="${run_name}" \
+                load_checkpoint="${resume_ckpt}" \
+                checkpoint_path="checkpoints/EVAL_DIAG/${run_name}" \
+                epochs=1 eval_interval=1 min_eval_interval=0 \
+                lr=0 lr_min_ratio=1.0 lr_warmup_steps=1 \
+                puzzle_emb_lr=0.0 puzzle_emb_weight_decay=0.0 \
+                freeze_weights=True \
+                checkpoint_every_eval=False \
+                ema=True
+          volumeMounts:
+            - name: trm-workspace
+              mountPath: /workspace
+            - name: script
+              mountPath: /script/common.sh
+              subPath: common.sh
+            - name: trm-pyshim
+              mountPath: /usr/local/lib/python3.10/dist-packages
+            - name: dshm
+              mountPath: /dev/shm
+          resources:
+            limits:
+              nvidia.com/gpu: 1
+              cpu: "8"
+              memory: 48Gi
+            requests:
+              nvidia.com/gpu: 1
+              cpu: "4"
+              memory: 24Gi
+      volumes:
+        - name: trm-workspace
+          persistentVolumeClaim:
+            claimName: trm-workspace-rwx
+        - name: script
+          configMap:
+            name: trm-common-script
+        - name: trm-pyshim
+          configMap:
+            name: trm-pyshim-cm
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 8Gi
+

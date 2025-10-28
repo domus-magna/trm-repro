@@ -1,3 +1,4 @@
+# %% [code]
 # %% [markdown]
 """
 # TRM ARC-AGI-2 Inference Notebook
@@ -28,11 +29,13 @@ Paper-faithful Tiny Recursive Model (TRM) inference on the ARC Prize 2025 evalua
 """
 
 # %%
+import json
 import os
 import shutil
 from pathlib import Path
 import subprocess
 import sys
+import hashlib
 
 import numpy as np
 
@@ -79,6 +82,37 @@ if WHEELS_DATASET.is_file():
     WHEELS = wheels_extract_dir
 else:
     WHEELS = WHEELS_DATASET
+try:
+    WEIGHTS_DATASET = resolve_dataset(
+        "trm-arc2-weights-trm-arc2-8gpu-eval100",
+        display_slug="seconds0/trm-arc2-weights-trm-arc2-8gpu-eval100",
+        aliases=(
+            "seconds0-trm-arc2-weights-trm-arc2-8gpu-eval100",
+            "trm-arc2-weights-trm_arc2_8gpu_eval100",
+            "trm-arc2-weights-trm-arc2-8gpu-resume",
+            "trm-arc2-weights",
+        ),
+    )
+except FileNotFoundError:
+    print("[WARN] Checkpoint dataset not attached; falling back to wheels dataset for weights.")
+    WEIGHTS_DATASET = WHEELS
+
+CHECKPOINT_MANIFEST = WEIGHTS_DATASET / "MANIFEST.txt"
+CHECKPOINT_STEP = 72385
+if CHECKPOINT_MANIFEST.exists():
+    manifest: dict[str, str] = {}
+    for line in CHECKPOINT_MANIFEST.read_text().splitlines():
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        manifest[key.strip()] = value.strip()
+    if "CHECKPOINT_STEP" in manifest:
+        try:
+            CHECKPOINT_STEP = int(manifest["CHECKPOINT_STEP"])
+        except ValueError:
+            print(f"[WARN] Invalid CHECKPOINT_STEP in {CHECKPOINT_MANIFEST}: {manifest['CHECKPOINT_STEP']}")
+    print(f"Checkpoint manifest: step={CHECKPOINT_STEP}")
+
 REPO_DATASET = resolve_dataset(
     "trm-repo-clean",
     display_slug="seconds0/trm-repo-clean",
@@ -316,9 +350,11 @@ sys.path.append(str(REPO_DIR))
 
 DATA_DIR = Path("/kaggle/working/arc_dataset")
 DATA_DIR.mkdir(exist_ok=True)
-ARC_PREFIX = "/kaggle/input/arc-prize-2025/arc-agi"
+ARC_DATA_ROOT = Path("/kaggle/input/arc-prize-2025")
+ARC_PREFIX = str(ARC_DATA_ROOT / "arc-agi")
+ARC_SUBSET = "test"
 
-print("Building evaluation dataset …")
+print("Building test dataset …")
 subprocess.run(
     [
         "python3",
@@ -328,9 +364,9 @@ subprocess.run(
         "--output-dir",
         str(DATA_DIR),
         "--subsets",
-        "evaluation",
+        ARC_SUBSET,
         "--test-set-name",
-        "evaluation",
+        ARC_SUBSET,
         "--num-aug",
         "0",
     ],
@@ -340,11 +376,61 @@ subprocess.run(
 
 # %% [markdown]
 """
+### 1.1 Dataset validators
+Confirm the build targets the ARC competition evaluation split (120 puzzles).
+"""
+
+# %%
+with open(DATA_DIR / "test_puzzles.json") as f:
+    test_puzzles = json.load(f)
+
+if isinstance(test_puzzles, dict):
+    puzzle_ids = sorted(test_puzzles.keys())
+else:
+    puzzle_ids = sorted(str(pid) for pid in test_puzzles)
+
+source_file = ARC_DATA_ROOT / f"arc-agi_{ARC_SUBSET}_challenges.json"
+if not source_file.exists():
+    raise FileNotFoundError(
+        f"{source_file.name} missing from competition data. "
+        "Confirm that the official ARC Prize dataset is attached."
+    )
+
+with open(source_file) as f:
+    evaluation_source = json.load(f)
+
+expected_eval_puzzles = len(evaluation_source)
+
+with open(DATA_DIR / "test" / "dataset.json") as f:
+    dataset_meta = json.load(f)
+
+if dataset_meta["total_puzzles"] != expected_eval_puzzles:
+    raise RuntimeError(
+        f"Unexpected evaluation puzzle count: {dataset_meta['total_puzzles']} (expected {expected_eval_puzzles}). "
+        "Check that arc-prize-2025/arc-agi is attached instead of the sample dataset."
+    )
+
+source_ids = sorted(evaluation_source.keys())
+if puzzle_ids != source_ids:
+    missing = sorted(set(source_ids) - set(puzzle_ids))
+    extra = sorted(set(puzzle_ids) - set(source_ids))
+    raise RuntimeError(
+        "Evaluation puzzle IDs do not match the competition file.\n"
+        f"Missing IDs: {missing[:5]}\nExtra IDs: {extra[:5]}"
+    )
+
+id_hash = hashlib.sha256("\n".join(source_ids).encode("utf-8")).hexdigest()
+print(
+    f"Validators: {ARC_SUBSET} split confirmed "
+    f"({expected_eval_puzzles} puzzles, SHA256={id_hash})."
+)
+
+# %% [markdown]
+"""
 ## 2. Load TRM components and checkpoint
 """
 
 # %%
-import json
 import torch
 from torch.utils.data import DataLoader
 
@@ -383,16 +469,34 @@ if dist is not None and dist.is_available() and not dist.is_initialized():
     os.environ.setdefault("MASTER_PORT", "29400")
     dist.init_process_group("gloo", rank=0, world_size=1)
 
-CHECKPOINT_PATH = WHEELS / "model.ckpt"
+CHECKPOINT_PATH = WEIGHTS_DATASET / "model.ckpt"
 if not CHECKPOINT_PATH.exists():
     raise FileNotFoundError(
-        f"model.ckpt missing from {WHEELS}. "
-        "Re-attach seconds0/trm-offline-wheels-py311 or refresh dataset version."
+        f"model.ckpt missing from {WEIGHTS_DATASET}. "
+        "Attach seconds0/trm-arc2-weights-trm-arc2-8gpu-eval100 (or matching alias) "
+        "alongside the offline wheels dataset."
     )
 
 checkpoint_state = torch.load(CHECKPOINT_PATH, map_location="cpu")
-puzzle_vocab_size = checkpoint_state["model.inner.puzzle_emb.weights"].shape[0]
-del checkpoint_state
+def _resolve_puzzle_key(state_dict: dict[str, "torch.Tensor"]) -> str:
+    primary = "model.inner.puzzle_emb.weights"
+    alternate = "_orig_mod.model.inner.puzzle_emb.weights"
+    if primary in state_dict:
+        return primary
+    if alternate in state_dict:
+        return alternate
+    raise KeyError(f"Puzzle embedding weights not found in checkpoint keys: {list(state_dict)[:5]}")
+
+puzzle_emb_key = _resolve_puzzle_key(checkpoint_state)
+puzzle_vocab_size = checkpoint_state[puzzle_emb_key].shape[0]
+ckpt_has_attention_keys = any("self_attn.qkv_proj.weight" in k for k in checkpoint_state)
+
+def _strip_prefix(state_dict: dict[str, "torch.Tensor"], prefix: str = "_orig_mod.") -> dict[str, "torch.Tensor"]:
+    if not any(k.startswith(prefix) for k in state_dict):
+        return state_dict
+    return { (k[len(prefix):] if k.startswith(prefix) else k): v for k, v in state_dict.items() }
+
+normalized_checkpoint_state = _strip_prefix(checkpoint_state)
 EVAL_SAVE_DIR = Path("/kaggle/working/trm_eval_outputs")
 EVAL_SAVE_DIR.mkdir(exist_ok=True)
 
@@ -454,6 +558,20 @@ cfg = PretrainConfig(
     freeze_weights=False,
     seed=0,
 )
+cfg.load_checkpoint = None  # manual load to support remapped checkpoint keys
+
+arch_summary = {
+    "name": arch_cfg.name,
+    "mlp_t": arch_cfg.mlp_t,
+    "num_heads": arch_cfg.num_heads,
+    "pos_encodings": arch_cfg.pos_encodings,
+    "forward_dtype": arch_cfg.forward_dtype,
+    "halt_max_steps": arch_cfg.halt_max_steps,
+}
+print("ARCH_CFG:", arch_summary)
+print("CHECKPOINT_PATH:", CHECKPOINT_PATH)
+print("CHECKPOINT_STEP:", CHECKPOINT_STEP)
+print("CKPT_HAS_ATTENTION_KEYS:", ckpt_has_attention_keys)
 
 train_dataset = PuzzleDataset(
     PuzzleDatasetConfig(
@@ -488,12 +606,29 @@ eval_loader = DataLoader(eval_dataset, batch_size=None)
 model, optimizers, optimizer_lrs = create_model(cfg, train_metadata, rank=0, world_size=1)
 model.eval()
 
+incompatible = model.load_state_dict(normalized_checkpoint_state, strict=False)
+if incompatible.missing_keys:
+    print(f"[WARN] Missing keys when loading checkpoint: {sorted(incompatible.missing_keys)[:5]}")
+if incompatible.unexpected_keys:
+    print(f"[WARN] Unexpected keys when loading checkpoint: {sorted(incompatible.unexpected_keys)[:5]}")
+del checkpoint_state
+del normalized_checkpoint_state
+
+inner_model = getattr(model, "model", None)
+loss_head = getattr(model, "loss", None)
+model_classes = {
+    "model": type(model).__name__,
+    "inner": type(inner_model).__name__ if inner_model is not None else "None",
+    "loss_head": type(loss_head).__name__ if loss_head is not None else "None",
+}
+print("MODEL_CLASSES:", model_classes)
+
 train_state = TrainState(
     model=model,
     optimizers=optimizers,
     optimizer_lrs=optimizer_lrs,
     carry=None,
-    step=72385,
+    step=CHECKPOINT_STEP,
     total_steps=0,
 )
 
@@ -530,11 +665,36 @@ print(json.dumps(metrics, indent=2, default=_json_default))
 
 # %% [markdown]
 """
-## 3. (Optional) Submit to ARC Prize 2025
-Uncomment the line below when you’re ready to submit.
+## 3. Housekeeping (keep only submission.json)
 """
 
 # %%
-# !kaggle competitions submit -c arc-prize-2025 \
-#     -f /kaggle/working/submission.json \
-#     -m "TRM ARC-AGI-2 checkpoint inference"
+cleanup_targets = [
+    EVAL_SAVE_DIR,
+    REPO_DIR,
+    DATA_DIR,
+    Path("/kaggle/working/trm_offline_wheels"),
+]
+
+for target in cleanup_targets:
+    if target.exists():
+        if target.is_dir():
+            shutil.rmtree(target, ignore_errors=True)
+        else:
+            try:
+                target.unlink()
+            except FileNotFoundError:
+                pass
+
+for leftover in Path("/kaggle/working").iterdir():
+    if leftover.name in {"submission.json"}:
+        continue
+    if leftover.is_dir():
+        shutil.rmtree(leftover, ignore_errors=True)
+    else:
+        try:
+            leftover.unlink()
+        except FileNotFoundError:
+            pass
+
+# %% [markdown]
