@@ -6,6 +6,17 @@
 - The script prints key metrics (`train/lm_loss`, `train/exact_accuracy`, `ARC/pass@K`, etc.) and confirms the checkpoint path from `config.load_checkpoint`.  
 - `WANDB_API_KEY` must be available in the environment (run `wandb login` first if needed).
 
+## Resume Pipeline Checklist
+
+- Always apply the `trm-common-script`, `trm-sitecustomize`, and `trm-pyshim` ConfigMaps before launching resume jobs; `infra/kubernetes/trm-train-{8,4}gpu-resume.yaml` assumes those patches are present.  
+- Pod logs must include:  
+  1. `Loading checkpoint .../step_<N>` (from the overlay loader).  
+  2. `[resume] initializing train_state.step to <N>` (from the bootstrap patch).  
+  3. No `Resume guard` exceptions.  
+  If any of these are missing, the run is invalid—delete the job and fix the configuration.  
+- After launch, check W&B: the first `_step` should equal the expected resume step and `train/lm_loss` should be in the ~0.2–0.4 band. Losses near 2.6 indicate a fresh start.
+- Never run the plain `trm-train-arc2-{8,4}gpu` manifests unless you explicitly want to start from scratch; they do not hydrate the resume step.
+
 ## Identifier Mapping Guardrails
 
 - Training continues to rely on the legacy shuffled builder (under `artifacts/TinyRecursiveModels_clean`).  
