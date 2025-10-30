@@ -44,6 +44,16 @@ data:
                 return recv
             return [payload]
 
+    def _score_candidates(candidate_stats):
+        scored = []
+        for h, stats in candidate_stats.items():
+            count = stats[0]
+            total_q = stats[1]
+            avg_q = total_q / count if count else 0.0
+            scored.append((h, avg_q, count))
+        scored.sort(key=lambda item: (item[1], item[2]), reverse=True)
+        return scored
+
     @njit
     def _crop(grid: np.ndarray):
         """Find maximum-sized rectangle without any EOS token inside. """
@@ -88,6 +98,13 @@ data:
                 env_flag = os.getenv("ARC_EVAL_VERBOSE")
                 verbose = bool(int(env_flag)) if env_flag is not None else False
             self.verbose = verbose
+            self._diag_limit = int(os.getenv("ARC_EVAL_CANDIDATE_DEBUG", "0"))
+            self._diag_top = max(1, int(os.getenv("ARC_EVAL_CANDIDATE_DEBUG_TOP", "5")))
+            self._diag_printed = 0
+            if self._diag_limit:
+                print(
+                    f"[ARC DEBUG] candidate diagnostics enabled: limit={self._diag_limit} top={self._diag_top}"
+                )
 
             # Load identifiers and test puzzles
             with open(os.path.join(data_path, "identifiers.json"), "r") as f:
@@ -175,30 +192,24 @@ data:
                     
                     p_map = {}
                     for hmap, preds in global_hmap_preds:  # type: ignore
-                        for h, q in preds.get(name, {}).get(input_hash, {}):
-                            p_map.setdefault(h, [0, 0])
-                            p_map[h][0] += 1
-                            p_map[h][1] += q
+                        for h, q in preds.get(name, {}).get(input_hash, ()):
+                            stats = p_map.setdefault(h, [0, 0.0])
+                            stats[0] += 1
+                            stats[1] += q
                     
                     if not len(p_map):
                         print(f"Puzzle {name} test example {test_idx} has no predictions.")
                         examples_with_no_predictions += 1
                         continue
-
-                    for h, stats in p_map.items():
-                        stats[1] /= stats[0]
-                        
-                    p_map = sorted(p_map.items(), key=lambda kv: kv[1], reverse=True)
+                    
+                    scored_candidates = _score_candidates(p_map)
 
                     # vote for different Ks
                     hash_matched_in_topk = False
                     for i, k in enumerate(self.pass_Ks):
-                        ok = False
-                        for h, stats in p_map[:k]:
-                            ok |= h == label_hash
+                        ok = any(h == label_hash for h, avg_q, count in scored_candidates[:k])
                         if ok and i == 0:
                             hash_matched_in_topk = True
-
                         num_test_correct[i] += ok
                     
                     if hash_matched_in_topk:
@@ -209,13 +220,27 @@ data:
                         print(f"  Input hash:  {input_hash[:16]}...")
                         print(f"  Label hash:  {label_hash[:16]}...")
                         print(f"  Top-3 pred hashes:")
-                        for i, (h, stats) in enumerate(p_map[:3]):
+                        for idx, (h, avg_q, count) in enumerate(scored_candidates[:3]):
                             match_str = "✓ MATCH" if h == label_hash else ""
-                            print(f"    {i+1}. {h[:16]}... (count={stats[0]}, avg_q={stats[1]:.4f}) {match_str}")
+                            print(f"    {idx+1}. {h[:16]}... (count={count}, avg_q={avg_q:.4f}) {match_str}")
+
+                    if self._diag_limit and self._diag_printed < self._diag_limit:
+                        unique_candidates = len(scored_candidates)
+                        submission_unique = len({h for h, _, _ in scored_candidates[: self.submission_K]})
+                        print(
+                            f"[ARC DEBUG] puzzle={name} test_idx={test_idx} candidates={unique_candidates} "
+                            f"unique_topK={submission_unique} label_hash={label_hash[:16]}"
+                        )
+                        for idx, (h, avg_q, count) in enumerate(scored_candidates[: self._diag_top]):
+                            match_flag = "✓" if h == label_hash else " "
+                            print(
+                                f"    {idx+1}. {h[:16]} avg_q={avg_q:.4f} count={count} match={match_flag}"
+                            )
+                        self._diag_printed += 1
 
                     # Query grids - iterate through all candidates until we hit submission_K
                     pred_grids = []
-                    for h, stats in p_map:
+                    for h, avg_q, count in scored_candidates:
                         if len(pred_grids) >= self.submission_K:
                             break
                         for hmap, preds in global_hmap_preds:  # type: ignore
@@ -223,14 +248,16 @@ data:
                                 pred_grids.append(hmap[h])
                                 break
 
-                    # Pad to K only if we exhausted candidates
-                    while len(pred_grids) < self.submission_K:
-                        pred_grids.append(pred_grids[0])
+                    if pred_grids:
+                        while len(pred_grids) < self.submission_K:
+                            pred_grids.append(pred_grids[-1])
 
-                    if len(pred_grids) >= 2 and np.array_equal(pred_grids[0], pred_grids[1]):
-                        examples_with_duplicate_attempts += 1
-                    
-                    submission[name].append({f"attempt_{i + 1}": grid.tolist() for i, grid in enumerate(pred_grids)})
+                        if len(pred_grids) >= 2 and np.array_equal(pred_grids[0], pred_grids[1]):
+                            examples_with_duplicate_attempts += 1
+                        
+                        submission[name].append({f"attempt_{i + 1}": grid.tolist() for i, grid in enumerate(pred_grids)})
+                    else:
+                        examples_with_no_predictions += 1
 
                 # Total correctness
                 for i in range(len(self.pass_Ks)):

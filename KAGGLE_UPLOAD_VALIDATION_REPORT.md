@@ -1,5 +1,263 @@
 # Kaggle Model Upload Validation Report
-## TRM ARC-AGI-2 8-GPU Checkpoint - Step 72,385
+## TRM ARC-AGI-2 8-GPU Checkpoint - Step 249,575
+
+**Generated:** 2025-10-29  
+**Checkpoint Packaged:** 2025-10-29 19:36 UTC  
+**Status:** ⚠️ Notebook runs, but ARC accuracy remains stalled (pass@1 ≈ 0.42%)
+
+---
+
+## Executive Summary
+
+Checkpoint step **249,575** (run `trm_arc2_8gpu_resume_step115815_plus100k_v2`) is now available on Kaggle as `seconds0/trm-arc2-weights-trm-arc2-8gpu-step249575` (dataset version **1**, private). Packaging succeeded (SHA256 `3a46d78fefac8180e2046a79c108bddd83a4bb23fd9609f2b345bab1bf2cfeb7`), and both evaluation and submission notebooks execute end-to-end. However, ARC metrics are still near-zero and every puzzle emits duplicate attempts, so **do not submit** this artifact to the leaderboard.
+
+Key observations (2025-10-29):
+
+- ✅ Dataset upload complete; Kaggle status `ready`.
+- ✅ Identifier guards still match legacy hashes (evaluation `c364…`, test `9af3…`).
+- ⚠️ `seconds0/trm-arc-agi-2-eval-step249575-run` v1 → `ARC/pass@1 = 0.0042`, `exact_accuracy = 0.0058`, duplicate attempts on 172/172 evaluation puzzles.
+- ⚠️ `seconds0/trm-arc-agi-2-inference-step249575-run` v1 → 259/259 test puzzles flagged for duplicate attempts; pass@K = 0.
+- ✅ Submission artifact archived at `submission_download_inference_step249575_run/submission.json` (SHA256 `fabca6832c5b82d37531045ee8b43cb1ee2c979a5a907bd65d6649f332cfd24e`).
+
+Update (2025-10-30):
+
+- ✅ Repo snapshot dataset `seconds0/trm-repo-clean` updated to include evaluator patch (version timestamp 2025-10-30 11:20 UTC).
+- ⚠️ Re-ran evaluation kernel (`seconds0/trm-arc-agi-2-eval-step249575-run` v3); ARC/pass@1 remains 0.0042 and duplicate attempts persist at 172/172 examples. Logs archived under `submission_download_eval_step249575_run_v10/`.
+- ⚠️ Submission kernel rerun (`seconds0/trm-arc-agi-2-inference-step249575-run` v2) still yields 259/259 duplicate attempts with pass@K = 0; artifact stored in `submission_download_inference_step249575_run_v2/`.
+- ✅ Repo snapshot refreshed again (2025-10-30 12:03 UTC) with candidate diagnostics; evaluation v7 (`submission_download_eval_step249575_run_v14/`) now prints `[ARC DEBUG]` blocks showing only one unique candidate per puzzle (count=1, unique_topK=1). Submission v4 (`submission_download_inference_step249575_run_v3/`) exhibits the same behaviour on the Kaggle test split.
+
+Recommendation: keep this dataset private; rerun packaging once resume accuracy recovers. Today’s Kaggle allocation should be used only if we can source a higher-quality checkpoint.
+
+---
+
+## 1. Checkpoint Location & Details (Step 249,575)
+
+### Primary Locations
+- **Source checkpoint:** `/workspace/TinyRecursiveModels/checkpoints/Arc2concept-aug-1000-ACT-torch/trm_arc2_8gpu_resume_step115815_plus100k_v2/step_249575`
+- **Packaged for Kaggle:** `artifacts/checkpoints/kaggle_dataset_8gpu_step249575/`
+
+### Checkpoint Metadata
+| Property | Value |
+|----------|-------|
+| **Training Step** | 249,575 |
+| **File Size** | 2,467,988,405 bytes (2.30 GB) |
+| **File Format** | PyTorch checkpoint (ZIP) |
+| **Packaged At** | 2025-10-29 19:36 UTC |
+| **Checkpoint SHA256** | `3a46d78fefac8180e2046a79c108bddd83a4bb23fd9609f2b345bab1bf2cfeb7` |
+| **Training Run** | `trm_arc2_8gpu_resume_step115815_plus100k_v2` |
+| **Git Commit (TRM_COMMIT.txt)** | `e7b68717f0a6c4cbb4ce6fbef787b14f42083bd9`
+
+### Package Contents
+`artifacts/checkpoints/kaggle_dataset_8gpu_step249575/`
+- `model.ckpt` (2.30 GB)
+- `dataset-metadata.json`, `README.md`, `COMMANDS.txt`, `ENVIRONMENT.txt`, `TRM_COMMIT.txt`, `MANIFEST.txt`
+
+`MANIFEST.txt` excerpt:
+```
+CHECKPOINT_STEP=249575
+CHECKPOINT_SOURCE=checkpoints/Arc2concept-aug-1000-ACT-torch/trm_arc2_8gpu_resume_step115815_plus100k_v2/step_249575
+PACKAGED_AT=2025-10-29T19:36:10Z
+SHA256=3a46d78fefac8180e2046a79c108bddd83a4bb23fd9609f2b345bab1bf2cfeb7
+```
+
+---
+
+## 2. Kaggle Dataset Upload
+
+| Field | Value |
+|-------|-------|
+| **Dataset ID** | `seconds0/trm-arc2-weights-trm-arc2-8gpu-step249575` |
+| **Visibility** | Private |
+| **Current Version** | 1 |
+| **Status** | Ready |
+| **Total Size** | ~2.3 GB |
+
+`kaggle datasets list --mine -v` shows the new slug with `lastUpdated=2025-10-29 19:46 UTC`.
+
+---
+
+## 3. Kaggle Evaluation (ARC Validation Split)
+
+- **Kernel:** `seconds0/trm-arc-agi-2-eval-step249575-run`
+- **Version:** 1
+- **Identifier Mode:** legacy guard (evaluation SHA256 `c364837393c2428e40c6116692fb1b66bf011108ec9930475df306cd779bbfd1`)
+
+**Headline Metrics (evaluation split, 172 puzzles – duplicates triggered):**
+| Metric | Value |
+|--------|-------|
+| `ARC/pass@1` | 0.0042 |
+| `ARC/pass@2` | 0.0042 |
+| `ARC/pass@5` | 0.0042 |
+| `ARC/pass@10` | 0.0042 |
+| `ARC/pass@100` | 0.0042 |
+| `ARC/pass@1000` | 0.0042 |
+| `exact_accuracy` | 0.0058 |
+| Duplicate attempts | 172 / 172 (100%) |
+
+Log archive: `submission_download_eval_step249575_run/trm-arc-agi-2-eval-step249575-run.log`
+
+---
+
+## 4. Kaggle Submission (ARC Test Split)
+
+- **Kernel:** `seconds0/trm-arc-agi-2-inference-step249575-run`
+- **Version:** 1
+- **Identifier Hash:** test SHA256 `9af3f07ab5c05320e2da99c85ad76086f7cbabe2159b5cf694da01aa7e33546f`
+- **Output:** `submission_download_inference_step249575_run/submission.json`
+- **Submission SHA256:** `fabca6832c5b82d37531045ee8b43cb1ee2c979a5a907bd65d6649f332cfd24e`
+
+**ARC Test Diagnostics (259 puzzles):**
+| Metric | Value |
+|--------|-------|
+| Total puzzles | 259 |
+| Puzzles with no predictions | 0 |
+| Puzzles with top-1 hash match | 0 |
+| Puzzles with duplicate attempts | 259 (100%) |
+
+Hold this submission offline; do not upload to the leaderboard.
+
+---
+
+
+# Kaggle Model Upload Validation Report
+## (ARCHIVE) TRM ARC-AGI-2 8-GPU Checkpoint - Step 119,432
+
+**Generated:** 2025-10-29
+**Checkpoint Packaged:** 2025-10-28 23:20 UTC
+**Status:** ⚠️ Requires accuracy review (evaluation pass@1 ≈ 0.8%)
+
+---
+
+## Executive Summary
+
+The resumed TRM ARC-AGI-2 8× GPU checkpoint at step **119,432** has been packaged and uploaded to Kaggle as `seconds0/trm-arc2-weights-trm-arc2-8gpu-step119432` (dataset version **2**). Integrity checks on `model.ckpt` pass and the latest inference/evaluation kernels run end-to-end with the new dataset. However, ARC evaluation performance remains low (pass@1 ≈ 0.83%), indicating the resume still fails to recover prior accuracy. The dataset should remain private until the resume gap is diagnosed.
+
+Key observations:
+
+- ✅ Kaggle dataset upload (v2) contains the 2.30 GB checkpoint and metadata bundle; MANIFEST SHA256 `2bc8bb3a5a85cd73e169a6fd285f9138427db894bd157edc20e92a58ed8ee33e` matches local packaging.
+- ✅ Identifier guards confirm legacy mapping (evaluation IDs hash `c364…`, test IDs hash `9af3…`).
+- ⚠️ Kaggle evaluation kernel `seconds0/trm-arc-agi-2-eval-step119432-run` v8 reports `ARC/pass@1 = 0.0083` (1/120 puzzles solved).
+- ⚠️ Kaggle submission kernel `seconds0/trm-arc-agi-2-inference-step119432-run` v1 shows only **2/259** test puzzles with top-1 hash matches, and all puzzles emit duplicate attempts.
+- ✅ Submission artifact `submission.json` SHA256 `5b8fc23a44ce68b4bf9726a912fe1c314a750f333b1465ae7061385bce8061d6` archived at `submission_download_inference_step119432_run/`.
+
+Immediate action items:
+
+1. Investigate why ARC accuracy collapsed after resume (compare against legacy step 72,385 baselines).
+2. Keep the dataset private and avoid leaderboard uploads until evaluation metrics recover.
+3. Continue logging resume diagnostics (pod logs + W&B) per AGENTS.md, and update Beads tickets KGL-0011/KGL-0012 once remediation plan is defined.
+
+---
+
+## 1. Checkpoint Location & Details (Step 119,432)
+
+### Primary Locations
+- **Source checkpoint:** `checkpoints/Arc2concept-aug-1000-ACT-torch/trm_arc2_8gpu_resume_step115815_plus100k_v2/step_119432`
+- **Packaged for Kaggle:** `artifacts/checkpoints/kaggle_dataset_8gpu_step119432/`
+
+### Checkpoint Metadata
+| Property | Value |
+|----------|-------|
+| **Training Step** | 119,432 |
+| **File Size** | 2,467,988,405 bytes (2.30 GB) |
+| **File Format** | PyTorch checkpoint (ZIP) |
+| **Packaged At** | 2025-10-28 23:20 UTC |
+| **Checkpoint SHA256** | `2bc8bb3a5a85cd73e169a6fd285f9138427db894bd157edc20e92a58ed8ee33e` |
+| **Training Run** | `trm_arc2_8gpu_resume_step115815_plus100k_v2` |
+| **Git Commit (TRM_COMMIT.txt)** | contents preserved under `TRM_COMMIT.txt` |
+
+### Package Contents
+`artifacts/checkpoints/kaggle_dataset_8gpu_step119432/`
+- `model.ckpt` (2.30 GB)
+- `dataset-metadata.json`, `MANIFEST.txt`, `COMMANDS.txt`, `ENVIRONMENT.txt`, `README.md`, `TRM_COMMIT.txt`
+
+`MANIFEST.txt` excerpt:
+```
+CHECKPOINT_STEP=119432
+CHECKPOINT_SOURCE=checkpoints/Arc2concept-aug-1000-ACT-torch/trm_arc2_8gpu_resume_step115815_plus100k_v2/step_119432
+PACKAGED_AT=2025-10-28T23:20:00Z
+SHA256=2bc8bb3a5a85cd73e169a6fd285f9138427db894bd157edc20e92a58ed8ee33e
+```
+
+---
+
+## 2. Kaggle Dataset Upload
+
+| Field | Value |
+|-------|-------|
+| **Dataset ID** | `seconds0/trm-arc2-weights-trm-arc2-8gpu-step119432` |
+| **Visibility** | Private |
+| **Current Version** | 2 |
+| **Status** | Ready |
+| **Total Size** | ~2.3 GB |
+
+`kaggle datasets status seconds0/trm-arc2-weights-trm-arc2-8gpu-step119432` → `ready`
+
+---
+
+## 3. Kaggle Evaluation (ARC Validation Split)
+
+- **Kernel:** `seconds0/trm-arc-agi-2-eval-step119432-run`
+- **Version:** 8
+- **Mode:** Legacy identifier mapping (builder guard active)
+- **Identifier Hashes:** evaluation identifiers SHA256 `c364837393c2428e40c6116692fb1b66bf011108ec9930475df306cd779bbfd1`
+
+**Headline Metrics (evaluation split, 120 puzzles):**
+| Metric | Value |
+|--------|-------|
+| `ARC/pass@1` | 0.0083 |
+| `ARC/pass@2` | 0.0083 |
+| `ARC/pass@5` | 0.0083 |
+| `ARC/pass@10` | 0.0083 |
+| `ARC/pass@100` | 0.0083 |
+| `ARC/pass@1000` | 0.0083 |
+| `exact_accuracy` | 0.0058 |
+
+⚠️ Only 1/120 puzzles solved; logs archived under `submission_download_eval_step119432_run_v7/`.
+
+---
+
+## 4. Kaggle Submission (ARC Test Split)
+
+- **Kernel:** `seconds0/trm-arc-agi-2-inference-step119432-run`
+- **Version:** 1
+- **Identifier Hashes:** test identifiers SHA256 `9af3f07ab5c05320e2da99c85ad76086f7cbabe2159b5cf694da01aa7e33546f`
+- **Output Artifact:** `submission_download_inference_step119432_run/submission.json`
+- **Submission SHA256:** `5b8fc23a44ce68b4bf9726a912fe1c314a750f333b1465ae7061385bce8061d6`
+
+**ARC Test Diagnostics (259 puzzles):**
+| Metric | Value |
+|--------|-------|
+| Total puzzles | 259 |
+| Puzzles with no predictions | 0 |
+| Puzzles with top-1 hash match | 2 (0.8%) |
+| Puzzles with duplicate attempts | 259 (100%) |
+
+⚠️ Duplication guard triggered on every puzzle; submission should **not** be uploaded to the Kaggle leaderboard in this state.
+
+---
+
+## 5. Identifier Mapping Guards
+
+| Split | Legacy SHA256 | Notes |
+|-------|---------------|-------|
+| Evaluation (120 puzzles) | `c364837393c2428e40c6116692fb1b66bf011108ec9930475df306cd779bbfd1` | Matches historical legacy mapping |
+| Test (240 puzzles) | `9af3f07ab5c05320e2da99c85ad76086f7cbabe2159b5cf694da01aa7e33546f` | New guard value recorded for resume tracking |
+
+Guard rails now terminate kernels if hashes deviate.
+
+---
+
+## 6. Next Steps
+
+1. Compare step 119,432 checkpoint activations against step 72,385 baseline to locate accuracy regression.
+2. Verify resume script sets `TrainState.step` correctly (pod logs show guard firing, but W&B history remains to be cross-checked).
+3. Once resume metrics recover, re-run the evaluation and submission kernels and update this report. Only then promote the dataset to a public Kaggle release.
+
+---
+
+
+# Kaggle Model Upload Validation Report
+## (ARCHIVE) TRM ARC-AGI-2 8-GPU Checkpoint - Step 72,385
 
 **Generated:** 2025-10-24
 **Checkpoint Date:** 2025-10-17 22:00 UTC

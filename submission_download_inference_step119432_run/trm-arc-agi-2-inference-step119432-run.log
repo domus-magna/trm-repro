@@ -1,0 +1,132 @@
+[{"stream_name":"stdout","time":8.054175313,"data":"Checkpoint manifest: step=119432\n"}
+,{"stream_name":"stdout","time":8.19167947,"data":"Installing hydra-core==1.3.2 from hydra_core-1.3.2-py3-none-any.whl\n"}
+,{"stream_name":"stdout","time":10.97822611,"data":"Looking in links: /kaggle/input/trm-offline-wheels-py311\n"}
+,{"stream_name":"stdout","time":11.002160812,"data":"Processing /kaggle/input/trm-offline-wheels-py311/hydra_core-1.3.2-py3-none-any.whl\n"}
+,{"stream_name":"stdout","time":11.013841882,"data":"Requirement already satisfied: omegaconf\u003c2.4,\u003e=2.2 in /usr/local/lib/python3.11/dist-packages (from hydra-core==1.3.2) (2.3.0)\n"}
+,{"stream_name":"stdout","time":11.015005916,"data":"Requirement already satisfied: antlr4-python3-runtime==4.9.* in /usr/local/lib/python3.11/dist-packages (from hydra-core==1.3.2) (4.9.3)\n"}
+,{"stream_name":"stdout","time":11.01620127,"data":"Requirement already satisfied: packaging in /usr/local/lib/python3.11/dist-packages (from hydra-core==1.3.2) (25.0)\n"}
+,{"stream_name":"stdout","time":11.019468333,"data":"Requirement already satisfied: PyYAML\u003e=5.1.0 in /usr/local/lib/python3.11/dist-packages (from omegaconf\u003c2.4,\u003e=2.2-\u003ehydra-core==1.3.2) (6.0.3)\n"}
+,{"stream_name":"stdout","time":12.722456872,"data":"Installing collected packages: hydra-core\n"}
+,{"stream_name":"stdout","time":12.868614722,"data":"Successfully installed hydra-core-1.3.2\n"}
+,{"stream_name":"stdout","time":12.946330207,"data":"omegaconf==2.3.0 already satisfied; skipping install.\n"}
+,{"stream_name":"stdout","time":12.946378969,"data":"annotated-types==0.7.0 already satisfied; skipping install.\n"}
+,{"stream_name":"stdout","time":12.946983373,"data":"pydantic-core==2.20.1 already satisfied; skipping install.\n"}
+,{"stream_name":"stdout","time":12.948224953,"data":"pydantic==2.8.2 already satisfied; skipping install.\n"}
+,{"stream_name":"stdout","time":12.948695036,"data":"typing-extensions==4.15.0 already satisfied; skipping install.\n"}
+,{"stream_name":"stdout","time":12.949189975,"data":"typing-inspection==0.4.0 already satisfied; skipping install.\n"}
+,{"stream_name":"stdout","time":12.949707159999999,"data":"pydantic-settings==2.4.0 already satisfied; skipping install.\n"}
+,{"stream_name":"stdout","time":12.950539136,"data":"python-dotenv==1.0.1 already satisfied; skipping install.\n"}
+,{"stream_name":"stdout","time":12.976154672,"data":"Installing argdantic==1.3.3 from argdantic-1.3.3-py2.py3-none-any.whl\n"}
+,{"stream_name":"stdout","time":14.221322518,"data":"Looking in links: /kaggle/input/trm-offline-wheels-py311\n"}
+,{"stream_name":"stdout","time":14.241585066,"data":"Processing /kaggle/input/trm-offline-wheels-py311/argdantic-1.3.3-py2.py3-none-any.whl\n"}
+,{"stream_name":"stdout","time":14.255843038,"data":"Requirement already satisfied: pydantic\u003c3.0,\u003e=2.8.0 in /usr/local/lib/python3.11/dist-packages (from argdantic==1.3.3) (2.12.0a1)\n"}
+,{"stream_name":"stdout","time":14.257134415,"data":"Requirement already satisfied: pydantic-settings\u003c3,\u003e=2.4.0 in /usr/local/lib/python3.11/dist-packages (from argdantic==1.3.3) (2.11.0)\n"}
+,{"stream_name":"stdout","time":14.26027757,"data":"Requirement already satisfied: annotated-types\u003e=0.6.0 in /usr/local/lib/python3.11/dist-packages (from pydantic\u003c3.0,\u003e=2.8.0-\u003eargdantic==1.3.3) (0.7.0)\n"}
+,{"stream_name":"stdout","time":14.261468767,"data":"Requirement already satisfied: pydantic-core==2.37.2 in /usr/local/lib/python3.11/dist-packages (from pydantic\u003c3.0,\u003e=2.8.0-\u003eargdantic==1.3.3) (2.37.2)\n"}
+,{"stream_name":"stdout","time":14.262518684,"data":"Requirement already satisfied: typing-extensions\u003e=4.14.1 in /usr/local/lib/python3.11/dist-packages (from pydantic\u003c3.0,\u003e=2.8.0-\u003eargdantic==1.3.3) (4.15.0)\n"}
+,{"stream_name":"stdout","time":14.263616799,"data":"Requirement already satisfied: typing-inspection\u003e=0.4.0 in /usr/local/lib/python3.11/dist-packages (from pydantic\u003c3.0,\u003e=2.8.0-\u003eargdantic==1.3.3) (0.4.1)\n"}
+,{"stream_name":"stdout","time":14.270191516,"data":"Requirement already satisfied: python-dotenv\u003e=0.21.0 in /usr/local/lib/python3.11/dist-packages (from pydantic-settings\u003c3,\u003e=2.4.0-\u003eargdantic==1.3.3) (1.1.1)\n"}
+,{"stream_name":"stdout","time":15.884567641,"data":"Installing collected packages: argdantic\n"}
+,{"stream_name":"stdout","time":15.930039206,"data":"Successfully installed argdantic-1.3.3\n"}
+,{"stream_name":"stdout","time":16.025342157,"data":"Installing coolname==2.2.0 from coolname-2.2.0-py2.py3-none-any.whl\n"}
+,{"stream_name":"stdout","time":17.28115056,"data":"Looking in links: /kaggle/input/trm-offline-wheels-py311\n"}
+,{"stream_name":"stdout","time":17.30063199,"data":"Processing /kaggle/input/trm-offline-wheels-py311/coolname-2.2.0-py2.py3-none-any.whl\n"}
+,{"stream_name":"stdout","time":18.957174751,"data":"Installing collected packages: coolname\n"}
+,{"stream_name":"stdout","time":18.999147932,"data":"Successfully installed coolname-2.2.0\n"}
+,{"stream_name":"stdout","time":19.074678767,"data":"einops==0.8.0 already satisfied; skipping install.\n"}
+,{"stream_name":"stdout","time":19.075416019,"data":"numba==0.60.0 already satisfied; skipping install.\n"}
+,{"stream_name":"stdout","time":19.075871711,"data":"llvmlite==0.43.0 already satisfied; skipping install.\n"}
+,{"stream_name":"stdout","time":19.076266157,"data":"antlr4-python3-runtime==4.9.3 already satisfied; skipping install.\n"}
+,{"stream_name":"stdout","time":19.122252193,"data":"Installing adam-atan2==0.0.3 from adam_atan2-0.0.3-cp311-cp311-linux_x86_64.whl\n"}
+,{"stream_name":"stdout","time":20.363336685,"data":"Looking in links: /kaggle/input/trm-offline-wheels-py311\n"}
+,{"stream_name":"stdout","time":20.382142895,"data":"Processing /kaggle/input/trm-offline-wheels-py311/adam_atan2-0.0.3-cp311-cp311-linux_x86_64.whl\n"}
+,{"stream_name":"stdout","time":22.027744612,"data":"Installing collected packages: adam-atan2\n"}
+,{"stream_name":"stdout","time":22.0672824,"data":"Successfully installed adam-atan2-0.0.3\n"}
+,{"stream_name":"stdout","time":22.605711481,"data":"Repository copied from dataset directory to /kaggle/working/TinyRecursiveModels\n"}
+,{"stream_name":"stdout","time":22.605764966,"data":"Repo root entries: ['.git', 'LICENSE', 'README.md', 'assets', 'config', 'dataset', 'evaluators', 'kaggle', 'models', 'pretrain.py', 'puzzle_dataset.py', 'requirements.txt']\n"}
+,{"stream_name":"stdout","time":22.606149547,"data":"Applying embedded legacy builder fallback to match legacy checkpoints.\n"}
+,{"stream_name":"stdout","time":22.606288489,"data":"Building test dataset …\n"}
+,{"stream_name":"stdout","time":23.644431228,"data":"test solutions not found, filling with dummy\n"}
+,{"stream_name":"stdout","time":23.644462842,"data":"Total puzzles: 240\n"}
+,{"stream_name":"stdout","time":23.644468522,"data":"Total puzzle IDs (including \u003cblank\u003e): 241\n"}
+,{"stream_name":"stdout","time":23.698373136,"data":"ARC identifiers sha256: 9af3f07ab5c05320e2da99c85ad76086f7cbabe2159b5cf694da01aa7e33546f (expected 9af3f07ab5c05320e2da99c85ad76086f7cbabe2159b5cf694da01aa7e33546f )\n"}
+,{"stream_name":"stdout","time":23.815369615,"data":"Validators: test split confirmed (240 puzzles, SHA256=0425e31f8c028fd6d6c2953fd5dbed115c065b8c657375a57f8b477c6f1d650c).\n"}
+,{"stream_name":"stderr","time":25.06620573,"data":"/usr/local/lib/python3.11/dist-packages/pydantic/_internal/_generate_schema.py:2225: UnsupportedFieldAttributeWarning: The 'repr' attribute with value False was provided to the `Field()` function, which has no effect in the context it was used. 'repr' is field-specific metadata, and can only be attached to a model field using `Annotated` metadata or by assignment. This may have happened because an `Annotated` type alias using the `type` statement was used, or if the `Field()` function was attached to a single member of a union type.\n"}
+,{"stream_name":"stderr","time":25.066265906,"data":"  warnings.warn(\n"}
+,{"stream_name":"stderr","time":25.066269853,"data":"/usr/local/lib/python3.11/dist-packages/pydantic/_internal/_generate_schema.py:2225: UnsupportedFieldAttributeWarning: The 'frozen' attribute with value True was provided to the `Field()` function, which has no effect in the context it was used. 'frozen' is field-specific metadata, and can only be attached to a model field using `Annotated` metadata or by assignment. This may have happened because an `Annotated` type alias using the `type` statement was used, or if the `Field()` function was attached to a single member of a union type.\n"}
+,{"stream_name":"stderr","time":25.066273295,"data":"  warnings.warn(\n"}
+,{"stream_name":"stderr","time":34.879521091,"data":"[W1029 15:59:54.721238141 socket.cpp:204] [c10d] The hostname of the client socket cannot be retrieved. err=-3\n"}
+,{"stream_name":"stderr","time":42.882443011,"data":"[W1029 16:00:02.724210914 socket.cpp:204] [c10d] The hostname of the client socket cannot be retrieved. err=-3\n"}
+,{"stream_name":"stdout","time":56.522325715,"data":"ARCH_CFG: {'name': 'recursive_reasoning.trm@TinyRecursiveReasoningModel_ACTV1', 'mlp_t': False, 'num_heads': 8, 'pos_encodings': 'rope', 'forward_dtype': 'float32', 'halt_max_steps': 16}\n"}
+,{"stream_name":"stdout","time":56.522361417,"data":"CHECKPOINT_PATH: /kaggle/input/trm-arc2-weights-trm-arc2-8gpu-step119432/model.ckpt\n"}
+,{"stream_name":"stdout","time":56.522368106,"data":"CHECKPOINT_STEP: 119432\n"}
+,{"stream_name":"stdout","time":56.522373617,"data":"CKPT_HAS_ATTENTION_KEYS: True\n"}
+,{"stream_name":"stdout","time":57.416497177,"data":"TinyRecursiveReasoningModel_ACTV1(\n"}
+,{"stream_name":"stdout","time":57.416532696,"data":"  (inner): TinyRecursiveReasoningModel_ACTV1_Inner(\n"}
+,{"stream_name":"stdout","time":57.416538833,"data":"    (embed_tokens): CastedEmbedding()\n"}
+,{"stream_name":"stdout","time":57.416544022,"data":"    (lm_head): CastedLinear()\n"}
+,{"stream_name":"stdout","time":57.416551448,"data":"    (q_head): CastedLinear()\n"}
+,{"stream_name":"stdout","time":57.416555267,"data":"    (puzzle_emb): CastedSparseEmbedding()\n"}
+,{"stream_name":"stdout","time":57.416560266,"data":"    (rotary_emb): RotaryEmbedding()\n"}
+,{"stream_name":"stdout","time":57.416567367,"data":"    (L_level): TinyRecursiveReasoningModel_ACTV1ReasoningModule(\n"}
+,{"stream_name":"stdout","time":57.416572281,"data":"      (layers): ModuleList(\n"}
+,{"stream_name":"stdout","time":57.416576827,"data":"        (0-1): 2 x TinyRecursiveReasoningModel_ACTV1Block(\n"}
+,{"stream_name":"stdout","time":57.416582595,"data":"          (self_attn): Attention(\n"}
+,{"stream_name":"stdout","time":57.416588055,"data":"            (qkv_proj): CastedLinear()\n"}
+,{"stream_name":"stdout","time":57.416593114,"data":"            (o_proj): CastedLinear()\n"}
+,{"stream_name":"stdout","time":57.416597955,"data":"          )\n"}
+,{"stream_name":"stdout","time":57.416603004,"data":"          (mlp): SwiGLU(\n"}
+,{"stream_name":"stdout","time":57.416608812,"data":"            (gate_up_proj): CastedLinear()\n"}
+,{"stream_name":"stdout","time":57.416614679,"data":"            (down_proj): CastedLinear()\n"}
+,{"stream_name":"stdout","time":57.416619573,"data":"          )\n"}
+,{"stream_name":"stdout","time":57.416643997,"data":"        )\n"}
+,{"stream_name":"stdout","time":57.416647698,"data":"      )\n"}
+,{"stream_name":"stdout","time":57.416651259,"data":"    )\n"}
+,{"stream_name":"stdout","time":57.416654729,"data":"  )\n"}
+,{"stream_name":"stdout","time":57.416658317,"data":")\n"}
+,{"stream_name":"stdout","time":63.031677708,"data":"MODEL_CLASSES: {'model': 'ACTLossHead', 'inner': 'TinyRecursiveReasoningModel_ACTV1', 'loss_head': 'None'}\n"}
+,{"stream_name":"stdout","time":64.543745238,"data":"Processing batch 1: all\n"}
+,{"stream_name":"stdout","time":106.130915247,"data":"  Completed inference in 16 steps\n"}
+,{"stream_name":"stdout","time":108.367755433,"data":"Processing batch 2: all\n"}
+,{"stream_name":"stdout","time":149.338569103,"data":"  Completed inference in 16 steps\n"}
+,{"stream_name":"stdout","time":149.343926855,"data":"Processing batch 3: all\n"}
+,{"stream_name":"stdout","time":190.316322609,"data":"  Completed inference in 16 steps\n"}
+,{"stream_name":"stdout","time":190.320452374,"data":"Processing batch 4: all\n"}
+,{"stream_name":"stdout","time":231.298998127,"data":"  Completed inference in 16 steps\n"}
+,{"stream_name":"stdout","time":231.303203195,"data":"Processing batch 5: all\n"}
+,{"stream_name":"stdout","time":272.226192266,"data":"  Completed inference in 16 steps\n"}
+,{"stream_name":"stdout","time":272.228053238,"data":"\n"}
+,{"stream_name":"stdout","time":272.228068538,"data":"Running 1 evaluator(s)...\n"}
+,{"stream_name":"stdout","time":272.228075993,"data":"Running evaluator 1/1: ARC\n"}
+,{"stream_name":"stdout","time":272.30624472,"data":"\n"}
+,{"stream_name":"stdout","time":272.30626821,"data":"[ARC DIAGNOSTICS]\n"}
+,{"stream_name":"stdout","time":272.306272389,"data":"  Total test examples: 259\n"}
+,{"stream_name":"stdout","time":272.306276379,"data":"  Examples with no predictions: 0\n"}
+,{"stream_name":"stdout","time":272.306282993,"data":"  Examples with top-1 hash match: 2 (0.8%)\n"}
+,{"stream_name":"stdout","time":272.306288735,"data":"  Examples with duplicate attempts: 259 (100.0%)\n"}
+,{"stream_name":"stdout","time":272.306791694,"data":"  Completed ARC\n"}
+,{"stream_name":"stdout","time":272.306801739,"data":"All evaluators completed!\n"}
+,{"stream_name":"stdout","time":272.307832025,"data":"Saved submission: /kaggle/working/trm_eval_outputs/evaluator_ARC_step_119432/submission.json\n"}
+,{"stream_name":"stdout","time":272.307845853,"data":"Copied to /kaggle/working/submission.json\n"}
+,{"stream_name":"stdout","time":272.307851124,"data":"Evaluator metrics:\n"}
+,{"stream_name":"stdout","time":272.308034934,"data":"{\n"}
+,{"stream_name":"stdout","time":272.308043017,"data":"  \"all\": {\n"}
+,{"stream_name":"stdout","time":272.308048185,"data":"    \"accuracy\": 0.19433720409870148,\n"}
+,{"stream_name":"stdout","time":272.308053152,"data":"    \"exact_accuracy\": 0.0077220075763762,\n"}
+,{"stream_name":"stdout","time":272.308058275,"data":"    \"lm_loss\": 6.513710975646973,\n"}
+,{"stream_name":"stdout","time":272.308063195,"data":"    \"q_halt_accuracy\": 0.3629343509674072,\n"}
+,{"stream_name":"stdout","time":272.308068128,"data":"    \"q_halt_loss\": 3.708559513092041,\n"}
+,{"stream_name":"stdout","time":272.308074845,"data":"    \"steps\": 16.0\n"}
+,{"stream_name":"stdout","time":272.30807965,"data":"  },\n"}
+,{"stream_name":"stdout","time":272.308082994,"data":"  \"ARC/pass@1\": 0.008333333333333333,\n"}
+,{"stream_name":"stdout","time":272.308111813,"data":"  \"ARC/pass@2\": 0.008333333333333333,\n"}
+,{"stream_name":"stdout","time":272.308132442,"data":"  \"ARC/pass@5\": 0.008333333333333333,\n"}
+,{"stream_name":"stdout","time":272.308136868,"data":"  \"ARC/pass@10\": 0.008333333333333333,\n"}
+,{"stream_name":"stdout","time":272.308140605,"data":"  \"ARC/pass@100\": 0.008333333333333333,\n"}
+,{"stream_name":"stdout","time":272.308144261,"data":"  \"ARC/pass@1000\": 0.008333333333333333\n"}
+,{"stream_name":"stdout","time":272.308147988,"data":"}\n"}
+,{"stream_name":"stderr","time":277.427942637,"data":"/usr/local/lib/python3.11/dist-packages/traitlets/traitlets.py:2915: FutureWarning: --Exporter.preprocessors=[\"nbconvert.preprocessors.ExtractOutputPreprocessor\"] for containers is deprecated in traitlets 5.0. You can pass `--Exporter.preprocessors item` ... multiple times to add items to a list.\n"}
+,{"stream_name":"stderr","time":277.427978798,"data":"  warn(\n"}
+,{"stream_name":"stderr","time":277.475476962,"data":"[NbConvertApp] Converting notebook __script__.ipynb to html\n"}
+,{"stream_name":"stderr","time":278.785636926,"data":"[NbConvertApp] Writing 402160 bytes to __results__.html\n"}
+]

@@ -51,10 +51,12 @@ spec:
               value: "1"
             - name: TORCH_NCCL_BLOCKING_WAIT
               value: "1"
+            - name: ARC_HALTING_MAX_STEPS
+              value: "448"
             - name: RESUME_CHECKPOINT_PATH
-              value: /workspace/TinyRecursiveModels/checkpoints/Arc2concept-aug-1000-ACT-torch/trm_arc2_8gpu_resume_plus100k/step_115815
+              value: /workspace/TinyRecursiveModels/checkpoints/Arc2concept-aug-1000-ACT-torch/trm_arc2_8gpu_resume_step115815_plus100k_v2/step_249575
             - name: RESUME_EXPECTED_STEP
-              value: "115815"
+              value: "249575"
             - name: RESUME_META_PATH
               value: /workspace/TinyRecursiveModels/resume_meta_trm_arc2_8gpu_resume_step115815_plus100k_v2.txt
           command: ["bash","-lc"]

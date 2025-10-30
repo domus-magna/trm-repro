@@ -103,7 +103,7 @@ class ExampleStats:
     frac_diff_vs_label: float
 
 
-def build_model(num_identifiers: int, batch_size: int) -> ACTLossHead:
+def build_model(num_identifiers: int, batch_size: int, halt_max_steps: int) -> ACTLossHead:
     cfg = dict(
         batch_size=batch_size,
         seq_len=ARC_MAX_GRID * ARC_MAX_GRID,
@@ -118,7 +118,7 @@ def build_model(num_identifiers: int, batch_size: int) -> ACTLossHead:
         expansion=4,
         num_heads=8,
         pos_encodings="rope",
-        halt_max_steps=16,
+        halt_max_steps=halt_max_steps,
         halt_exploration_prob=0.1,
         forward_dtype="float32",
         mlp_t=False,
@@ -162,7 +162,11 @@ def run(args: argparse.Namespace) -> None:
     puzzle_key = next(k for k in ckpt_state if "puzzle_emb.weights" in k)
     num_identifiers = ckpt_state[puzzle_key].shape[0]
 
-    model = build_model(num_identifiers=num_identifiers, batch_size=args.batch_size)
+    model = build_model(
+        num_identifiers=num_identifiers,
+        batch_size=args.batch_size,
+        halt_max_steps=args.halt_max_steps,
+    )
     model.eval()
 
     normalized_state = strip_prefix(ckpt_state)
@@ -288,6 +292,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dataset", required=True, help="Path to built ARC dataset (with labels)")
     parser.add_argument("--batch-size", type=int, default=16, help="Global batch size used during iteration")
     parser.add_argument("--max-examples", type=int, default=None, help="Limit number of evaluation examples")
+    parser.add_argument(
+        "--halt-max-steps",
+        type=int,
+        default=int(os.environ.get("ARC_HALTING_MAX_STEPS", "16")),
+        help="Maximum ACT halting steps to run during inference (default: ARC_HALTING_MAX_STEPS env or 16)",
+    )
     return parser.parse_args()
 
 
