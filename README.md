@@ -9,7 +9,7 @@
 ## Quick Links
 - 🤗 Hugging Face model: [`seconds-0/trm-arc2-8gpu`](https://huggingface.co/seconds-0/trm-arc2-8gpu)
 - 🧠 Upstream TRM repo: [SamsungSAILMontreal/TinyRecursiveModels](https://github.com/SamsungSAILMontreal/TinyRecursiveModels)
-- 📄 Tiny Recursive Models paper: [arXiv:2502.12345](https://arxiv.org/abs/2502.12345)
+- 📄 Tiny Recursive Models paper: [arXiv:2510.04871](https://arxiv.org/abs/2510.04871) — *Less is More: Recursive Reasoning with Tiny Networks*
 - 🏆 Competition: [Kaggle ARC Prize 2025](https://www.kaggle.com/competitions/arc-prize-2025)
 - 📚 Documentation:
   - [Open-source release plan](docs/release/open_source_release_plan.md)
