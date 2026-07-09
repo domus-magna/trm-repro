@@ -96,7 +96,7 @@ Inspect `submission.json` and metrics under the output directory.
    - `seconds0/trm-repo-clean`
    - `arc-prize-2025`
 3. Copy contents of `kaggle/trm_arc2_inference_notebook.py`.
-4. Run all cells; expect accuracy ≈0.628 on public evaluation.
+4. Run all cells. `all/accuracy` (≈0.628) is per-cell token accuracy and is **not** a success criterion — a run that solves zero tasks still scores ≈0.628 on it. Check `ARC/pass@2` instead, and verify predictions with `results/grade_submission.py`.
 5. Manually upload `submission.json` (or configure Kaggle CLI with `kaggle.json`).
 
 ## 5. Publishing Artifacts
