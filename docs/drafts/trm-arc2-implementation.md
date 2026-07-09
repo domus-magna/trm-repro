@@ -419,7 +419,7 @@ See `docs/arc2-collapse-investigation.md` for the full historical record and pri
   1. Refresh wheels: download PyPI wheels via `tmp_wheels_py311/` (see `kaggle/kernels/build_adam_atan2_wheel.py`).
   2. Replace `model.ckpt` with the desired checkpoint.
   3. `kaggle datasets version -p ~/TinyRecursiveModels/kaggle_dataset_trm_offline_wheels_v2 -m "update py311 wheels + checkpoint"`.
-- **Inference kernel:** `seconds0/trm-arc-agi-2-inference-py311-offline` consumes the wheels bundle + repo snapshot and emits `/kaggle/working/trm_eval_outputs/evaluator_ARC_step_72385/submission.json` with pass@1=0.628.
+- **Inference kernel:** `seconds0/trm-arc-agi-2-inference-py311-offline` consumes the wheels bundle + repo snapshot and emits `/kaggle/working/trm_eval_outputs/evaluator_ARC_step_72385/submission.json` with `all.accuracy=0.628` (per-cell token accuracy). That run's task solve rate was `ARC/pass@K = 0.0` for every K — see §11.6.
 
 ### 11.6 Kaggle Validation Run (2025-10-18)
 
