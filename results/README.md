@@ -34,6 +34,35 @@ Every solved test output is a **same-shape** task — output grid dimensions equ
 dimensions. All three fully solved tasks have exactly **2 distinct input colors**, against a set
 median of 6. Two of the five solved outputs required `attempt_2`.
 
+### What kind of tasks these are
+
+The three solved tasks are all **local marking** problems: the output is the input with some subset
+of cells recolored in place. Nothing moves, nothing resizes, and the output introduces at most two
+colors that were not already present. Counting distinct `(input colour → output colour)` cell
+transitions across every demonstration pair:
+
+| Task | Distinct transitions | Transformation |
+| --- | --- | --- |
+| `7666fa5d` | 1 (`8 → 2`) | Paint colour 2 into the region delimited by the diagonal lines. Purely additive — nothing is ever erased. |
+| `1818057f` | 1 (`4 → 8`) | Recolour every plus/cross pentomino of 4s to 8. *(Rule verified programmatically against all train and test pairs.)* |
+| `71e489b6` | 3 (`1 → 7`, `0 → 7`, `1 → 0`) | Halo the holes inside a filled region with colour 7; delete stray isolated pixels. |
+| `b6f77b65` *(partial, 1 of 2)* | 32, writing all 10 colours | Objects are moved and rewritten across the grid — a rearrangement task, not a marking task. |
+
+Sorting all 120 evaluation tasks by this measure places every solve in the narrowest category:
+
+| Task category | Count | Solved |
+| --- | --- | --- |
+| Same-shape, output introduces ≤ 2 new colours (local marking) | 21 | **3 (14.3%)** |
+| Same-shape, output introduces ≥ 3 new colours (rearrangement) | 60 | 0 |
+| Reshape (output dimensions ≠ input dimensions) | 39 | 0 |
+
+All three solves land in the 21-task marking bucket, which would happen by chance with probability
+`C(21,3)/C(120,3) ≈ 0.005`. Inside that bucket the model solves 14.3%; outside it, across 99 tasks,
+it solves nothing.
+
+**The model learned to recolour cells according to a local geometric predicate. It did not learn to
+move objects, and it did not learn to change the size of a grid.**
+
 ## What the model failed
 
 | Failure mode | Count |
